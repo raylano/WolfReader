@@ -1,0 +1,92 @@
+/*
+ * Base styles for the print layout document. Book stylesheets are scoped to
+ * `.wr-css-N` and loaded after this file, so they win wherever they say
+ * something; the !important rules below are the few guarantees we need for
+ * clean pagination (images never wider/taller than a page, etc.).
+ */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  color: #000;
+}
+
+#wr-book {
+  display: block;
+}
+
+.wr-section {
+  display: block;
+  position: relative; /* containing block for the page markers */
+  break-before: page;
+}
+.wr-section:first-child {
+  break-before: auto;
+}
+
+.wr-html,
+.wr-body {
+  display: block;
+}
+
+.wr-body {
+  font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', Constantia, 'Book Antiqua', serif;
+  font-size: 11pt;
+  line-height: 1.45;
+  overflow-wrap: break-word;
+  orphans: 2;
+  widows: 2;
+}
+
+.wr-body img,
+.wr-body svg,
+.wr-body video,
+.wr-body canvas {
+  max-width: 100% !important;
+  max-height: var(--wr-max-media-height, 230mm) !important;
+  break-inside: avoid;
+}
+.wr-body img {
+  object-fit: contain;
+}
+.wr-body figure {
+  break-inside: avoid;
+}
+.wr-body pre {
+  white-space: pre-wrap !important;
+}
+.wr-body table {
+  max-width: 100%;
+}
+.wr-body h1,
+.wr-body h2,
+.wr-body h3,
+.wr-body h4,
+.wr-body h5,
+.wr-body h6 {
+  break-after: avoid;
+}
+
+/* Invisible page markers: each becomes a link annotation on the page where
+   its chapter starts. Absolutely positioned so they never affect layout. */
+.wr-marker {
+  position: absolute !important;
+  display: block !important;
+  width: 2px !important;
+  height: 2px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  color: transparent !important;
+  background: transparent !important;
+  font-size: 1px !important;
+  line-height: 1px !important;
+  text-decoration: none !important;
+}
+
+.wr-unreadable {
+  font-style: italic;
+  color: #555;
+}
