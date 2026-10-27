@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { EpubArchive, EpubError } = require('./epub-archive');
 const { PrintEngine } = require('./print-engine');
+const { log: printLog, logPath: printLogPath } = require('./print-log');
 const { ORIGIN, registerPrivileges, handleProtocol } = require('./protocol');
 const settings = require('./settings');
 
@@ -326,7 +327,7 @@ function registerIpc() {
       const result = await getEngine(bookId).print({ pages, deviceName, copies, duplex, color });
       if (result.success) return { ok: true };
       const reason = String(result.reason || '');
-      console.error('Print job failed:', reason || '(no reason given)');
+      printLog(`print failed for printer "${deviceName || 'default'}": ${reason || '(no reason given)'}`);
       // Printing is silent, so the user never gets a chance to cancel: a "cancelled" job was
       // aborted by the printer, its driver or the spooler (e.g. a virtual printer that wants a
       // save dialog, or a paper size the printer refuses).
@@ -336,7 +337,7 @@ function registerIpc() {
           /invalid/i.test(reason)
             ? 'The printer rejected the print settings, or is no longer available. Check that it is switched on and connected, or choose another printer.'
             : /cancel/i.test(reason)
-              ? 'The printer or Windows cancelled the job after it was sent (it showed up in the print queue and was removed). Try another printer, or use “Print via PDF viewer” to print with your PDF viewer’s own print window.'
+              ? 'The printer or Windows cancelled the job after it was sent (it showed up in the print queue and was removed). Try another printer, or use “Print via PDF viewer” to print with your PDF viewer’s own print window. Details: ' + printLogPath()
               : `Printing failed${reason ? ` (${reason})` : ''}. Check the printer, or use “Print via PDF viewer” or “Save as PDF”.`,
       };
     } catch (err) {

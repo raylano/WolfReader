@@ -15,6 +15,7 @@ const { BrowserWindow } = require('electron');
 const { readMarkers, buildSelectionPdf } = require('./pdf-tools');
 const { computeChapterSpans, toRanges } = require('../shared/selection');
 const { ORIGIN } = require('./protocol');
+const { log } = require('./print-log');
 
 const PAPERS = { A4: 'A4', Letter: 'Letter' };
 const LAYOUT_TIMEOUT_MS = 10 * 60 * 1000;
@@ -197,28 +198,62 @@ class PrintEngine {
   }
 
   /**
-   * @returns {Promise<{success:boolean, reason?:string}>}
+   * Sends the selected pages to the printer. Some drivers (Epson inkjets among them) abort a
+   * silent job when it carries settings they don't like — the job shows up in the Windows print
+   * queue and is removed again. So when a job fails, it is retried with fewer settings:
+   *   1. everything (paper size, margins, collate, duplex, ...)
+   *   2. no paper size / margins / collate — the printer's own defaults, only copies, colour and
+   *      duplex when the user asked for them
+   * Page ranges are always kept: they are what limits the job to the selection.
+   * @returns {Promise<{success:boolean, reason?:string, attempt:number}>}
    */
-  print({ pages, deviceName, copies = 1, duplex = 'simplex', color = true }) {
+  async print({ pages, deviceName, copies = 1, duplex = 'simplex', color = true }) {
     const clean = this._checkPages(pages);
     if (!this.win) throw new Error('The print layout is not available. Reopen the book and try again.');
-    const options = {
+    const common = {
       silent: true,
       deviceName: deviceName || '',
-      copies: Math.max(1, Math.min(99, Number(copies) || 1)),
-      collate: true,
       color: Boolean(color),
-      duplexMode: ['simplex', 'longEdge', 'shortEdge'].includes(duplex) ? duplex : 'simplex',
       printBackground: false,
-      pageSize: this.paper,
-      landscape: false,
-      margins: { marginType: 'default' },
     };
-    if (clean.length !== this.pagination.totalPages) {
-      // Electron wants 0-based inclusive ranges.
-      options.pageRanges = toRanges(clean).map((r) => ({ from: r.from - 1, to: r.to - 1 }));
+    const copyCount = Math.max(1, Math.min(99, Number(copies) || 1));
+    const duplexMode = ['simplex', 'longEdge', 'shortEdge'].includes(duplex) ? duplex : 'simplex';
+    const ranges =
+      clean.length !== this.pagination.totalPages
+        ? // Electron wants 0-based inclusive ranges.
+          { pageRanges: toRanges(clean).map((r) => ({ from: r.from - 1, to: r.to - 1 })) }
+        : {};
+    const attempts = [
+      {
+        ...common,
+        ...ranges,
+        copies: copyCount,
+        collate: true,
+        duplexMode,
+        pageSize: this.paper,
+        landscape: false,
+        margins: { marginType: 'default' },
+      },
+      {
+        ...common,
+        ...ranges,
+        ...(copyCount > 1 ? { copies: copyCount } : {}),
+        ...(duplexMode !== 'simplex' ? { duplexMode } : {}),
+      },
+    ];
+    let last = { success: false, reason: '' };
+    for (let i = 0; i < attempts.length; i++) {
+      last = await this._printOnce(attempts[i]);
+      log(`print attempt ${i + 1}/${attempts.length} -> ${last.success ? 'ok' : `failed (${last.reason || 'no reason'})`}`);
+      if (last.success) return { ...last, attempt: i + 1 };
+      if (/invalid/i.test(last.reason || '')) break; // wrong or missing printer: fewer settings won't help
     }
+    return { ...last, attempt: attempts.length };
+  }
+
+  _printOnce(options) {
     return new Promise((resolve) => {
+      if (!this.win || this.win.isDestroyed()) return resolve({ success: false, reason: 'print window closed' });
       this.win.webContents.print(options, (success, reason) => resolve({ success, reason }));
     });
   }

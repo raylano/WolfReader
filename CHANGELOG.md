@@ -4,6 +4,9 @@
 
 - **Printing:** when the printer or Windows cancels a job after it was sent, Wolfreader now says
   so instead of the misleading “Printing was cancelled”, and the reason is logged.
+- **Printer compatibility (e.g. Epson):** a job that the driver aborts is retried automatically
+  with fewer settings (no paper size, margins or collate — the printer's own defaults). Every
+  attempt is logged to `%APPDATA%\Wolfreader\print.log`.
 - **New “Print via PDF viewer” button:** opens your selection in your PDF viewer so you can
   print with its own print window — a reliable way around printers that refuse silent jobs.
 
