@@ -29,6 +29,7 @@ gives you full control over what goes to the printer (or into a PDF).
 
 - 📖 **Read EPUBs** — cover, table of contents and a comfortable reading pane. Open with a
   button, drag-and-drop, or double-click a `.epub` once installed.
+- 🗂️ **Tabs** — open several books at once and switch between them.
 - 🖨️ **Print the entire book** or **choose what to print**:
   - tick whole **chapters** from the table of contents (parts select all their chapters),
   - **open a chapter** to see its pages and tick or untick **single pages**,
@@ -99,6 +100,7 @@ npm run build      # copies epub.js into src/renderer/vendor
 npm start          # build + run the app in development mode
 npm test           # unit tests (page ranges, chapter spans, selection)
 npm run test:picker  # e2e check of the chapter/page picker and preview (needs xvfb-run on Linux)
+npm run test:tabs    # e2e check of tabs and opening books from a second process
 ```
 
 ### Building the Windows installer

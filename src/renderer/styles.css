@@ -210,6 +210,65 @@ select:focus-visible {
   align-items: center;
 }
 
+/* ---------------- tabs ---------------- */
+
+.tabbar {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px 0;
+  background: var(--bark-900);
+  border-bottom: 1px solid #120a06;
+  overflow-x: auto;
+  user-select: none;
+}
+.tab {
+  display: flex;
+  align-items: center;
+  max-width: 240px;
+  min-width: 0;
+  border-radius: 9px 9px 0 0;
+  background: var(--bark-800);
+  color: var(--cream-200);
+}
+.tab.active {
+  background: var(--cream-50);
+  color: var(--ink-900);
+}
+.tab-label {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 4px 7px 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  text-align: left;
+}
+.tab-close {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-right: 5px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  opacity: 0.7;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.tab-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.12);
+}
+
 /* ---------------- welcome ---------------- */
 
 .welcome {

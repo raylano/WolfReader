@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0
+
+- **Tabs.** Every book you open gets its own tab; switch between books without losing your
+  place or their page layout. Opening a book that is already open switches to its tab.
+- **Opening from Explorer while Wolfreader runs** now opens the book as a new tab and brings
+  the window to the front (Windows used to keep it in the background).
+- **Closing really ends Wolfreader.** The app no longer relies on a graceful shutdown: it exits
+  directly, and a small watchdog ends the process if Windows' shutdown hangs, so Wolfreader can
+  always be started again and uninstalled. Start/stop events are logged to
+  `%APPDATA%\Wolfreader\app.log`.
+- Opening, switching or closing while a book is still loading is no longer ignored.
+
 ## 1.1.2
 
 - **Wolfreader now really exits when you close it** (and starts again afterwards). A hidden

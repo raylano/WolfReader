@@ -23,8 +23,14 @@
     settings: {},
     fontScale: 100,
     currentSection: null,
+    lastCfi: null, // reading position, kept when switching tabs
     opening: false,
   };
+
+  /** Open books, one tab each: {bookId, res, filePath, title, cfi, layout}. */
+  const tabs = [];
+  const activeTab = () => tabs.find((t) => t.bookId === state.bookId) || null;
+  const samePath = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 
   /* ---------------- small UI helpers ---------------- */
 
@@ -129,8 +135,26 @@
     if (file) await openPath(file);
   }
 
+  // A request that arrives while a book is still opening (a click, a file from Explorer) runs
+  // right after it instead of being dropped. Only the latest one is kept.
+  let queued = null;
+  function runQueued() {
+    const next = queued;
+    queued = null;
+    if (next) next();
+  }
+
   async function openPath(filePath) {
-    if (!filePath || state.opening) return;
+    if (!filePath) return;
+    if (state.opening) {
+      queued = () => openPath(filePath);
+      return;
+    }
+    const existing = tabs.find((t) => samePath(t.filePath, filePath));
+    if (existing) {
+      await switchTab(existing);
+      return;
+    }
     state.opening = true;
     const hadBook = Boolean(state.bookId);
     $('welcome-error').hidden = true;
@@ -151,10 +175,106 @@
         }
         return;
       }
-      teardownBook(false); // main already closed the previous archive
-      await loadBook(res, filePath);
+      saveActiveTab();
+      teardownBook(false);
+      const tab = {
+        bookId: res.bookId,
+        res,
+        filePath,
+        title: res.fileName.replace(/\.epub$/i, ''),
+        cfi: null,
+        layout: { status: 'idle', pagination: null, error: null, progress: null, paper: defaultPaper() },
+      };
+      tabs.push(tab);
+      await loadBook(res, filePath, tab);
     } finally {
       state.opening = false;
+      runQueued();
+    }
+  }
+
+  /* ---------------- tabs ---------------- */
+
+  function saveActiveTab() {
+    const tab = activeTab();
+    if (tab) tab.cfi = state.lastCfi;
+  }
+
+  async function switchTab(tab) {
+    if (!tab) return;
+    if (state.opening) {
+      queued = () => switchTab(tab);
+      return;
+    }
+    if (tab.bookId === state.bookId) {
+      setView('reader');
+      return;
+    }
+    state.opening = true;
+    try {
+      PrintDialog.close(true);
+      saveActiveTab();
+      teardownBook(false);
+      setView('loading');
+      $('loading-text').textContent = 'Opening book…';
+      await loadBook(tab.res, tab.filePath, tab);
+    } finally {
+      state.opening = false;
+      runQueued();
+    }
+  }
+
+  async function closeTab(tab) {
+    if (!tab) return;
+    if (state.opening) {
+      queued = () => closeTab(tab);
+      return;
+    }
+    const index = tabs.indexOf(tab);
+    if (index < 0) return;
+    const wasActive = tab.bookId === state.bookId;
+    tabs.splice(index, 1);
+    if (!wasActive) {
+      wolf.closeBook(tab.bookId);
+      renderTabs();
+      return;
+    }
+    PrintDialog.close(true);
+    teardownBook(true, tab.bookId);
+    const next = tabs[Math.min(index, tabs.length - 1)];
+    if (next) await switchTab(next);
+    else {
+      document.title = 'Wolfreader';
+      setView('welcome');
+    }
+    renderTabs();
+  }
+
+  function renderTabs() {
+    const bar = $('tabbar');
+    bar.innerHTML = '';
+    bar.hidden = tabs.length === 0;
+    for (const tab of tabs) {
+      const el = document.createElement('div');
+      el.className = 'tab' + (tab.bookId === state.bookId ? ' active' : '');
+      el.dataset.bookId = tab.bookId;
+      el.setAttribute('role', 'tab');
+      el.setAttribute('aria-selected', String(tab.bookId === state.bookId));
+      const label = document.createElement('button');
+      label.className = 'tab-label';
+      label.textContent = tab.title;
+      label.title = tab.filePath;
+      label.addEventListener('click', () => switchTab(tab));
+      const close = document.createElement('button');
+      close.className = 'tab-close';
+      close.textContent = '×';
+      close.setAttribute('aria-label', `Close ${tab.title}`);
+      close.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeTab(tab);
+      });
+      el.append(label, close);
+      bar.appendChild(el);
     }
   }
 
@@ -165,8 +285,10 @@
     return 'Its contents seem to be damaged or use a structure Wolfreader doesn’t understand.';
   }
 
-  async function loadBook(res, filePath) {
+  async function loadBook(res, filePath, tab) {
     state.bookId = res.bookId;
+    if (tab) state.layout = tab.layout; // shared object: background layout results land in the tab
+    renderTabs();
     let book;
     try {
       // epub.js silently hangs on an unparseable package document; check it first.
@@ -182,6 +304,16 @@
       console.error('Book failed to load', err);
       const id = state.bookId;
       teardownBook(true, id);
+      const i = tabs.findIndex((t) => t.bookId === id);
+      if (i >= 0) tabs.splice(i, 1);
+      renderTabs();
+      if (tabs.length) {
+        const fallback = tabs[tabs.length - 1];
+        state.opening = false;
+        await switchTab(fallback);
+        toast(`This EPUB couldn’t be read. ${friendlyReadError(err)}`, { error: true, timeout: 9000 });
+        return;
+      }
       setView('welcome');
       showWelcomeError('This EPUB couldn’t be read', friendlyReadError(err));
       return;
@@ -195,6 +327,10 @@
       fileName: res.fileName,
       filePath,
     };
+    if (tab) {
+      tab.title = state.info.title;
+      renderTabs();
+    }
 
     buildModel(book, res.opfUrl);
     renderBookCard(book);
@@ -203,8 +339,10 @@
     $('topbar-title').textContent = state.info.title + (state.info.author ? ` — ${state.info.author}` : '');
     document.title = `${state.info.title} – Wolfreader`;
 
-    await renderReader(book);
-    startLayout();
+    await renderReader(book, tab && tab.cfi);
+    // A tab that was already laid out (or still is) keeps that work.
+    if (['idle', 'cancelled', 'error'].includes(state.layout.status)) startLayout();
+    else setLayout({});
   }
 
   /** epub.js' spine.get() can't find the first spine item by href (`0 || …`). */
@@ -369,7 +507,7 @@
     '::selection': { background: '#f6d3a2' },
   };
 
-  async function renderReader(book) {
+  async function renderReader(book, startCfi) {
     const viewer = $('viewer');
     viewer.innerHTML = '';
     $('reader-notice').hidden = true;
@@ -401,7 +539,7 @@
 
     const first = state.sections[0] ? state.sections[0].index : 0;
     try {
-      await display(first);
+      await display(startCfi || first);
     } catch {
       /* display() already reported it */
     }
@@ -424,6 +562,7 @@
   }
 
   function onRelocated(location) {
+    if (location && location.start && location.start.cfi) state.lastCfi = location.start.cfi;
     state.currentSection = location && location.start ? location.start.index : null;
     $('btn-prev').disabled = !location || location.atStart;
     $('btn-next').disabled = !location || location.atEnd;
@@ -524,6 +663,13 @@
     return /^(en-US|en-CA|es-MX|fr-CA)$/i.test(navigator.language) ? 'Letter' : 'A4';
   }
 
+  /** Updates the layout of book `bookId` — also when that book's tab isn't the active one. */
+  function setLayoutFor(bookId, patch) {
+    const tab = tabs.find((t) => t.bookId === bookId);
+    if (bookId === state.bookId) setLayout(patch);
+    else if (tab) Object.assign(tab.layout, patch);
+  }
+
   function setLayout(patch) {
     Object.assign(state.layout, patch);
     PrintDialog.onLayoutChanged();
@@ -553,14 +699,11 @@
         chapters: state.chapters.map(({ id, depth, sectionIndex, fragment }) => ({ id, depth, sectionIndex, fragment })),
       })
       .then((res) => {
-        if (state.bookId !== bookId) return;
-        if (res.ok) setLayout({ status: 'ready', pagination: res.pagination, error: null });
-        else if (res.cancelled) setLayout({ status: 'cancelled' });
-        else setLayout({ status: 'error', error: res.message });
+        if (res.ok) setLayoutFor(bookId, { status: 'ready', pagination: res.pagination, error: null });
+        else if (res.cancelled) setLayoutFor(bookId, { status: 'cancelled' });
+        else setLayoutFor(bookId, { status: 'error', error: res.message });
       })
-      .catch((err) => {
-        if (state.bookId === bookId) setLayout({ status: 'error', error: String(err.message || err) });
-      });
+      .catch((err) => setLayoutFor(bookId, { status: 'error', error: String(err.message || err) }));
   }
 
   /** Called by the print dialog: (re)start the layout if it isn't usable. */
@@ -579,10 +722,9 @@
     const bookId = state.bookId;
     setLayout({ status: 'running', paper, progress: { phase: 'paginating' } });
     const res = await wolf.setPaper(bookId, paper);
-    if (state.bookId !== bookId) return;
-    if (res.ok) setLayout({ status: 'ready', pagination: res.pagination });
-    else if (res.cancelled) setLayout({ status: 'cancelled' });
-    else setLayout({ status: 'error', error: res.message });
+    if (res.ok) setLayoutFor(bookId, { status: 'ready', pagination: res.pagination });
+    else if (res.cancelled) setLayoutFor(bookId, { status: 'cancelled' });
+    else setLayoutFor(bookId, { status: 'error', error: res.message });
   }
 
   function cancelLayout() {
@@ -622,16 +764,14 @@
     state.hasToc = false;
     state.currentSection = null;
     state.currentKey = null;
+    state.lastCfi = null;
     state.layout = { status: 'idle', pagination: null, error: null, progress: null, paper: state.layout.paper };
     $('viewer').innerHTML = '';
   }
 
   function closeBook() {
-    if (!state.bookId) return;
-    PrintDialog.close(true);
-    teardownBook(true);
-    document.title = 'Wolfreader';
-    setView('welcome');
+    const tab = activeTab();
+    if (tab) closeTab(tab);
   }
 
   /* ---------------- drag and drop ---------------- */

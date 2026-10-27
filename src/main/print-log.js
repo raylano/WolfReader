@@ -5,14 +5,14 @@ const fs = require('fs');
 const path = require('path');
 const { app } = require('electron');
 
-function logPath() {
-  return path.join(app.getPath('userData'), 'print.log');
+function logPath(name = 'print.log') {
+  return path.join(app.getPath('userData'), name);
 }
 
-function log(message) {
-  console.error('[print]', message);
+function log(message, name = 'print.log') {
+  console.error(`[${name}]`, message);
   try {
-    const file = logPath();
+    const file = logPath(name);
     let size = 0;
     try {
       size = fs.statSync(file).size;
@@ -20,10 +20,13 @@ function log(message) {
       /* not created yet */
     }
     if (size > 200 * 1024) fs.rmSync(file, { force: true });
-    fs.appendFileSync(file, `${new Date().toISOString()}  ${message}\n`);
+    fs.appendFileSync(file, `${new Date().toISOString()}  [pid ${process.pid}]  ${message}\n`);
   } catch {
     /* logging must never break printing */
   }
 }
 
-module.exports = { log, logPath };
+/** Start/quit/second-instance events, to diagnose an app that won't start again: app.log */
+const appLog = (message) => log(message, 'app.log');
+
+module.exports = { log, logPath, appLog };
