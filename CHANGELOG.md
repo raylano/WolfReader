@@ -1,13 +1,25 @@
 # Changelog
 
+## 1.1.2
+
+- **Wolfreader now really exits when you close it** (and starts again afterwards). A hidden
+  page-layout window or an unfinished print job could keep a background process alive that
+  blocked starting the app again and the uninstaller. The process is now ended explicitly, and
+  starting Wolfreader recovers if an old process is still around.
+- **Printing:** if a printer driver (e.g. Epson) aborts the job, the pages are printed as images
+  through plain Windows (GDI) printing instead.
+
 ## 1.1.1
 
 - **Closing the app now really quits it.** A hidden page-layout window kept Wolfreader running
   in the background after the window was closed, so it wouldn't start again and the
-  uninstaller said the app must be closed.
+  uninstaller said the app must be closed. Starting Wolfreader again also recovers if an old
+  process is still around.
 - **Printing:** when the printer or Windows cancels a job after it was sent, Wolfreader now says
   so instead of the misleading “Printing was cancelled”, and the reason is logged.
-- **Printer compatibility (e.g. Epson):** a job that the driver aborts is retried automatically
+- **Printer compatibility (e.g. Epson):** if a driver still aborts the job, the pages are printed
+  as images through plain Windows (GDI) printing instead, bypassing Chromium's print pipeline.
+  Before that, a job that the driver aborts is retried automatically
   with fewer settings (no paper size, margins or collate — the printer's own defaults). Every
   attempt is logged to `%APPDATA%\Wolfreader\print.log`.
 - **New “Print via PDF viewer” button:** opens your selection in your PDF viewer so you can

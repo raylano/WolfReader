@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { EpubArchive, EpubError } = require('./epub-archive');
 const { PrintEngine } = require('./print-engine');
+const gdi = require('./gdi-print');
 const { log: printLog, logPath: printLogPath } = require('./print-log');
 const { ORIGIN, registerPrivileges, handleProtocol } = require('./protocol');
 const settings = require('./settings');
@@ -37,10 +38,14 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on('second-instance', (_event, argv) => {
     const file = findEpubArg(argv);
+    if (file) pendingFile = file;
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
       if (file) sendToUi('app:open-file', file);
+    } else if (app.isReady()) {
+      // A process that outlived its window must not make Wolfreader impossible to start again.
+      createMainWindow();
     }
   });
   app.on('open-file', (event, file) => {
@@ -75,9 +80,16 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('closed', () => {
     mainWindow = null;
-    // The hidden print-layout windows would otherwise keep the process alive after the last
-    // visible window is gone (window-all-closed never fires), blocking the uninstaller.
-    closeAllBooks();
+    // Hidden print-layout windows (and print jobs in flight) can keep the process alive after
+    // the last visible window is gone, which blocks restarting and the uninstaller. Make sure
+    // the process ends: arm a forced exit first, then clean up, then quit.
+    setTimeout(() => app.exit(0), 3000).unref();
+    try {
+      closeAllBooks();
+      for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.destroy();
+    } catch (err) {
+      console.error('Cleanup on close failed:', err);
+    }
     app.quit();
   });
   mainWindow.webContents.on('render-process-gone', (_e, details) => {
@@ -326,6 +338,16 @@ function registerIpc() {
     }
   });
 
+  ipcMain.handle('gdi:begin', () => gdi.begin());
+  ipcMain.handle('gdi:page', (_e, { jobId, index, bytes }) => gdi.addPage(jobId, index, bytes));
+  ipcMain.handle('gdi:end', (_e, jobId) => gdi.end(jobId));
+  ipcMain.handle('gdi:run', async (_e, { jobId, ...opts }) => {
+    const result = await gdi.run(jobId, opts);
+    return result.success
+      ? { ok: true }
+      : { ok: false, message: `Windows couldn’t print the pages either (${result.reason}). Use “Print via PDF viewer” instead.` };
+  });
+
   ipcMain.handle('print:print', async (_e, { bookId, pages, deviceName, copies, duplex, color }) => {
     try {
       const result = await getEngine(bookId).print({ pages, deviceName, copies, duplex, color });
@@ -337,6 +359,8 @@ function registerIpc() {
       // save dialog, or a paper size the printer refuses).
       return {
         ok: false,
+        // On Windows the renderer can retry through the plain GDI route (see gdi-print.js)
+        fallback: process.platform === 'win32' && !/invalid/i.test(reason),
         message:
           /invalid/i.test(reason)
             ? 'The printer rejected the print settings, or is no longer available. Check that it is switched on and connected, or choose another printer.'
