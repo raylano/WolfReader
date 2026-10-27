@@ -1,38 +1,92 @@
+<div align="center">
+
+<img src="src/renderer/img/logo.png" alt="Wolfreader" width="180" />
+
 # Wolfreader
 
-<img src="src/renderer/img/logo.png" alt="Wolfreader logo" width="200" align="right" />
+**Open an EPUB. Print exactly what you want — the whole book, a few chapters, or single pages.**
 
-Wolfreader is a small Windows desktop app for **opening EPUB books and printing them** — the
-entire book, or only the chapters and pages you pick.
+[![Latest release](https://img.shields.io/github/v/release/raylano/WolfReader?color=d4802f&label=download)](https://github.com/raylano/WolfReader/releases/latest)
+[![CI](https://github.com/raylano/WolfReader/actions/workflows/ci.yml/badge.svg)](https://github.com/raylano/WolfReader/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Platform: Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey)
 
-- Open an `.epub` (Open button, drag-and-drop, or double-click a `.epub` file once installed)
-- Read it: cover, title, author, table of contents and a comfortable reading pane
-- Print:
-  - **Entire book**, or
-  - **Choose chapters or pages** — tick chapters from the book's table of contents, type page
-    ranges such as `5-12, 20`, or both. A live counter shows *“X pages / Y chapters selected”*.
-- Pick paper size (A4 / Letter), printer, copies, two-sided and color — or **Save as PDF**.
+[**⬇ Download for Windows**](https://github.com/raylano/WolfReader/releases/latest) · [Features](#features) · [How to print part of a book](#print-just-what-you-need) · [Development](#development)
+
+</div>
+
+---
+
+Ever wanted to print one chapter of an e-book — without printing 400 pages by accident?
+Wolfreader is a small, friendly Windows app that opens EPUB books, lets you read them, and
+gives you full control over what goes to the printer (or into a PDF).
+
+<p align="center">
+  <img src="docs/screenshots/print-dialog.png" alt="Print dialog with expandable chapters, page tick boxes and a page preview" width="760" />
+</p>
+
+## Features
+
+- 📖 **Read EPUBs** — cover, table of contents and a comfortable reading pane. Open with a
+  button, drag-and-drop, or double-click a `.epub` once installed.
+- 🖨️ **Print the entire book** or **choose what to print**:
+  - tick whole **chapters** from the table of contents (parts select all their chapters),
+  - **open a chapter** to see its pages and tick or untick **single pages**,
+  - type **page ranges** like `5-12, 20, 30-`,
+  - combine all three — the live counter shows *“X pages / Y chapters selected”*.
+- 🔍 **Page preview** — click a page number to see a small preview of how that page will
+  print before you spend any paper.
+- 📄 **Save as PDF** — the same selection, page for page.
+- ⚙️ A4 or Letter, any installed printer, copies, two-sided and color.
+- 🔢 Page numbers on every printed page that match the numbers in the dialog, so “pages
+  12–20” prints the pages labelled 12–20.
+- 🔒 **Private and offline** — nothing leaves your computer; book scripts never run.
 
 Wolfreader is deliberately simple: no library, bookmarks, sync or annotations.
 
-## Using the installed app
+<p align="center">
+  <img src="docs/screenshots/reader.png" alt="Reading an EPUB in Wolfreader" width="49%" />
+  <img src="docs/screenshots/welcome.png" alt="Wolfreader welcome screen" width="49%" />
+</p>
 
-1. Run `Wolfreader-Setup-1.0.1.exe` and follow the installer (per-user install, no admin
-   rights needed; you can choose the folder). It adds Start Menu and desktop shortcuts and
-   registers Wolfreader for `.epub` files.
-2. Start **Wolfreader** and click **Open EPUB…** (or drop a `.epub` file on the window).
-3. Click **Print** (or press **Ctrl+P**).
-4. Choose **Entire book**, or **Choose chapters or pages**:
-   - tick one or more chapters (ticking a part ticks all of its chapters), and/or
-   - type pages in the *Pages* box, e.g. `1-3, 10, 25-`.
-   Every chapter shows the pages it occupies, so you can see exactly what will print.
-5. Pick paper size and printer, then **Print** — or **Save as PDF…**.
+## Install
 
-Page numbers are printed at the bottom of every page and always match the numbers shown in
-the print window, so a selection like “pages 12–20” prints the pages labelled 12–20.
+1. Download **`Wolfreader-Setup-<version>.exe`** from the
+   [latest release](https://github.com/raylano/WolfReader/releases/latest).
+2. Run it. It installs per user (no admin rights needed), lets you pick the folder, adds Start
+   Menu and desktop shortcuts and registers Wolfreader for `.epub` files.
+
+> **Heads up:** the installer isn't code-signed yet, so Windows SmartScreen may say “Windows
+> protected your PC”. Click **More info → Run anyway**.
+
+## Print just what you need
+
+1. Click **Open EPUB…** (or drop a `.epub` file on the window).
+2. Click **Print** (or press **Ctrl+P**).
+3. Choose **Entire book**, or **Choose chapters or pages**:
+   - tick chapters; click the **▸ arrow** in front of a chapter to open its pages and
+     untick the ones you don't want (or tick just a few);
+   - click a **page number** to see a preview, and use the arrows to flip through pages;
+   - and/or type pages in the *Pages* box, e.g. `1-3, 10, 25-`.
+4. Pick paper size and printer, then **Print** — or **Save as PDF…**.
 
 Only DRM-free EPUB 2 / EPUB 3 books can be opened. Books bought with DRM (Adobe, Apple,
-Readium LCP, …) are detected and Wolfreader says so instead of failing silently.
+Readium LCP, …) are detected and Wolfreader tells you so instead of failing silently.
+
+## FAQ
+
+**Why do page numbers differ from my e-reader?** EPUB has no fixed pages. Wolfreader lays the
+book out for the paper size you choose (A4 or Letter) and numbers those pages.
+
+**Is there a Mac or Linux version?** Not yet — the app is built with Electron, so it's
+possible, but only Windows installers are published for now.
+
+**Can I print a protected book?** No. Wolfreader only opens DRM-free books.
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) and
+the [changelog](CHANGELOG.md).
 
 ## Development
 
@@ -44,12 +98,13 @@ npm install
 npm run build      # copies epub.js into src/renderer/vendor
 npm start          # build + run the app in development mode
 npm test           # unit tests (page ranges, chapter spans, selection)
+npm run test:picker  # e2e check of the chapter/page picker and preview (needs xvfb-run on Linux)
 ```
 
 ### Building the Windows installer
 
 ```bash
-npm run dist       # -> release/Wolfreader-Setup-1.0.1.exe (NSIS, win32 x64)
+npm run dist       # -> release/Wolfreader-Setup-<version>.exe (NSIS, win32 x64)
 npm run dist:dir   # unpacked app only, in release/win-unpacked/
 ```
 

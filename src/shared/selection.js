@@ -104,10 +104,14 @@
   /**
    * The set of pages to print.
    * mode "all": every page. mode "custom": union of the checked chapters' pages
-   * and the typed page ranges.
+   * and the typed page ranges, plus pages ticked one by one (includePages),
+   * minus pages unticked one by one (excludePages).
    * @returns {{pages:number[], errors:string[], chapterCount:number}}
    */
-  function resolveSelection({ mode, checkedChapterIds = [], rangeText = '' }, { totalPages, spans }) {
+  function resolveSelection(
+    { mode, checkedChapterIds = [], rangeText = '', includePages = [], excludePages = [] },
+    { totalPages, spans },
+  ) {
     if (mode === 'all') {
       const pages = [];
       for (let p = 1; p <= totalPages; p++) pages.push(p);
@@ -123,8 +127,27 @@
     }
     const parsed = parsePageRanges(rangeText, totalPages);
     for (const p of parsed.pages) set.add(p);
+    for (const p of includePages) if (p >= 1 && p <= totalPages) set.add(p);
+    for (const p of excludePages) set.delete(p);
     return { pages: Array.from(set).sort((a, b) => a - b), errors: parsed.errors, chapterCount };
   }
 
-  return { parsePageRanges, toRanges, formatRanges, computeChapterSpans, resolveSelection };
+  /**
+   * Updates the per-page overrides so that `pages` become selected (on) or
+   * unselected (off) given the pages `base` already selected through chapters
+   * and typed ranges. Returns new {includePages, excludePages} Sets.
+   */
+  function togglePages(pages, on, base, includePages, excludePages) {
+    const include = new Set(includePages);
+    const exclude = new Set(excludePages);
+    for (const p of pages) {
+      include.delete(p);
+      exclude.delete(p);
+      if (on && !base.has(p)) include.add(p);
+      if (!on && base.has(p)) exclude.add(p);
+    }
+    return { includePages: include, excludePages: exclude };
+  }
+
+  return { togglePages, parsePageRanges, toRanges, formatRanges, computeChapterSpans, resolveSelection };
 });

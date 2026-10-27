@@ -1,7 +1,7 @@
 {
   "name": "wolfreader",
   "productName": "Wolfreader",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Wolfreader — open EPUB books and print the whole book or just the chapters and pages you choose.",
   "main": "src/main/main.js",
   "author": "Wolfreader",
@@ -16,6 +16,7 @@
     "samples": "bash scripts/fetch-samples.sh",
     "dist": "npm run build && electron-builder --win nsis --x64",
     "dist:dir": "npm run build && electron-builder --win dir --x64",
+    "test:picker": "npm run build && xvfb-run -a --server-args=\"-screen 0 1440x900x24\" node test/e2e/page-picker.js",
     "verify:package": "node test/tools/verify-package.js",
     "verify:wine-install": "node test/tools/wine-install-check.js"
   },
@@ -84,5 +85,24 @@
     "jszip": "^3.10.2",
     "pdfjs-dist": "^6.4.299",
     "playwright-core": "^1.64.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raylano/WolfReader.git"
+  },
+  "homepage": "https://github.com/raylano/WolfReader#readme",
+  "bugs": {
+    "url": "https://github.com/raylano/WolfReader/issues"
+  },
+  "keywords": [
+    "epub",
+    "reader",
+    "print",
+    "pdf",
+    "electron",
+    "windows"
+  ],
+  "engines": {
+    "node": ">=21"
   }
 }

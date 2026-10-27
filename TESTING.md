@@ -1,6 +1,6 @@
 # Testing
 
-How Wolfreader 1.0.0 was verified: unit tests, end-to-end runs against real books, PDF
+How Wolfreader 1.0.0 was verified (the page picker added in 1.1.0 is covered by `npm run test:picker`, 12 checks): unit tests, end-to-end runs against real books, PDF
 inspection, installer build and package checks — and what could **not** be checked, because
 no real Windows machine or physical printer was available.
 

@@ -88,3 +88,25 @@ test('selection is the union of checked chapters and typed ranges', () => {
   assert.equal(all.pages.length, 30);
   assert.equal(all.chapterCount, 2);
 });
+
+test('single pages can be added to and removed from a selection', () => {
+  const ctx = { totalPages: 20, spans: { a: { startPage: 3, endPage: 6 } } };
+  const sel = resolveSelection(
+    { mode: 'custom', checkedChapterIds: ['a'], includePages: [10, 99], excludePages: [4, 5] },
+    ctx,
+  );
+  assert.deepEqual(sel.pages, [3, 6, 10]);
+});
+
+test('togglePages only records overrides that differ from the chapter/range selection', () => {
+  const { togglePages } = require('../../src/shared/selection');
+  const base = new Set([3, 4, 5]);
+  let o = togglePages([4], false, base, new Set(), new Set());
+  assert.deepEqual([...o.excludePages], [4]);
+  o = togglePages([4], true, base, o.includePages, o.excludePages);
+  assert.deepEqual([...o.excludePages], []);
+  o = togglePages([9], true, base, o.includePages, o.excludePages);
+  assert.deepEqual([...o.includePages], [9]);
+  o = togglePages([9], false, base, o.includePages, o.excludePages);
+  assert.deepEqual([...o.includePages], []);
+});

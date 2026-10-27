@@ -265,6 +265,11 @@ function registerIpc() {
     if (book && book.engine) book.engine.cancel();
   });
 
+  ipcMain.handle('layout:pdf', (_e, bookId) => {
+    const engine = getEngine(bookId);
+    return engine.pdfBytes ? new Uint8Array(engine.pdfBytes) : null;
+  });
+
   ipcMain.handle('print:printers', async () => {
     try {
       const printers = await mainWindow.webContents.getPrintersAsync();

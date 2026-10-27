@@ -15,6 +15,8 @@ window.PrintDialog = (function () {
   let printers = [];
   let busy = false;
   let renderedFor = null; // pagination object the chapter list was built for
+  let previewDoc = null; // {pag, promise} pdf.js document of the laid-out book
+  let previewToken = 0;
 
   const app = () => window.WolfApp;
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -44,21 +46,48 @@ window.PrintDialog = (function () {
     return list;
   }
 
-  function selection() {
+  function selection(withOverrides = true, mode = ui.mode) {
     const { state } = app();
     const pag = state.layout.pagination;
     if (!pag) return null;
     const list = entries();
     const sel = WolfSelection.resolveSelection(
-      { mode: ui.mode, checkedChapterIds: [...ui.checked], rangeText: ui.rangeText },
+      {
+        mode,
+        checkedChapterIds: [...ui.checked],
+        rangeText: ui.rangeText,
+        includePages: withOverrides ? [...ui.include] : [],
+        excludePages: withOverrides ? [...ui.exclude] : [],
+      },
       { totalPages: pag.totalPages, spans: pag.spans },
     );
-    // "chapters" = checked entries without sub-entries (a ticked part counts its chapters)
+    // "chapters" = chapters (entries without sub-entries) that have at least one selected page
+    const chosen = new Set(sel.pages);
     const leaves = list.filter((e) => e.descendants.length === 0 && pag.spans[e.id]);
     sel.chapterCount =
-      ui.mode === 'all' ? leaves.length : leaves.filter((e) => ui.checked.has(e.id)).length;
+      mode === 'all'
+        ? leaves.length
+        : leaves.filter((e) => {
+            const sp = pag.spans[e.id];
+            for (let p = sp.startPage; p <= sp.endPage; p++) if (chosen.has(p)) return true;
+            return false;
+          }).length;
     return sel;
   }
+
+  /** Makes `pages` (un)selected, on top of what chapters and typed ranges already give. */
+  function setPages(pages, on) {
+    const base = new Set(selection(false, 'custom').pages);
+    const next = WolfSelection.togglePages(pages, on, base, ui.include, ui.exclude);
+    ui.include = next.includePages;
+    ui.exclude = next.excludePages;
+  }
+
+  const spanPages = (span) => {
+    const out = [];
+    for (let p = span.startPage; p <= span.endPage; p++) out.push(p);
+    return out;
+  };
 
   /* ---------------- rendering ---------------- */
 
@@ -88,8 +117,18 @@ window.PrintDialog = (function () {
       const li = document.createElement('li');
       if (!span) li.classList.add('disabled');
       if (e.front) li.classList.add('front');
+      const row = document.createElement('div');
+      row.className = 'ch-row';
+      row.style.paddingLeft = e.depth * 18 + 'px';
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'ch-toggle';
+      toggle.dataset.toggle = e.id;
+      toggle.textContent = '▸';
+      toggle.disabled = !span;
+      toggle.setAttribute('aria-label', `Show the pages of ${e.label}`);
+      toggle.setAttribute('aria-expanded', 'false');
       const label = document.createElement('label');
-      label.style.paddingLeft = 6 + e.depth * 18 + 'px';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.dataset.id = e.id;
@@ -105,19 +144,136 @@ window.PrintDialog = (function () {
           : `pp. ${span.startPage}–${span.endPage}`
         : 'not found';
       label.append(cb, text, pages);
-      li.appendChild(label);
+      row.append(toggle, label);
+      li.dataset.id = e.id;
+      li.appendChild(row);
       listEl.appendChild(li);
+      if (span && ui.expanded.has(e.id)) setExpanded(li, e, true);
     }
     syncCheckboxes();
   }
 
   function syncCheckboxes() {
-    const list = entries();
-    const byId = new Map(list.map((e) => [e.id, e]));
-    for (const cb of $('chapter-list').querySelectorAll('input[type=checkbox]')) {
-      const e = byId.get(cb.dataset.id);
-      cb.checked = ui.checked.has(e.id);
-      cb.indeterminate = !cb.checked && e.descendants.some((id) => ui.checked.has(id));
+    const pag = app().state.layout.pagination;
+    if (!pag) return;
+    const chosen = new Set(selection(true, 'custom').pages);
+    // A chapter is ticked when all of its pages are selected, half-ticked when only some are.
+    for (const cb of $('chapter-list').querySelectorAll('input[data-id]')) {
+      const span = pag.spans[cb.dataset.id];
+      if (!span) {
+        cb.checked = cb.indeterminate = false;
+        continue;
+      }
+      let n = 0;
+      for (let p = span.startPage; p <= span.endPage; p++) if (chosen.has(p)) n++;
+      const total = span.endPage - span.startPage + 1;
+      cb.checked = n === total;
+      cb.indeterminate = n > 0 && n < total;
+    }
+    for (const chip of $('chapter-list').querySelectorAll('.page-chip')) {
+      const on = chosen.has(Number(chip.dataset.page));
+      chip.classList.toggle('on', on);
+      chip.querySelector('input').checked = on;
+      chip.classList.toggle('current', ui.previewPage === Number(chip.dataset.page));
+    }
+    if (ui.previewPage) $('preview-include').checked = chosen.has(ui.previewPage);
+  }
+
+  /* ---------------- expandable page lists ---------------- */
+
+  function setExpanded(li, entry, open) {
+    const pag = app().state.layout.pagination;
+    const span = pag.spans[entry.id];
+    const toggle = li.querySelector('.ch-toggle');
+    li.classList.toggle('open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+    let grid = li.querySelector('.page-grid');
+    if (!open) {
+      ui.expanded.delete(entry.id);
+      if (grid) grid.hidden = true;
+      return;
+    }
+    ui.expanded.add(entry.id);
+    if (!grid) {
+      grid = document.createElement('div');
+      grid.className = 'page-grid';
+      for (const p of spanPages(span)) {
+        const chip = document.createElement('span');
+        chip.className = 'page-chip';
+        chip.dataset.page = p;
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.setAttribute('aria-label', `Print page ${p}`);
+        const num = document.createElement('button');
+        num.type = 'button';
+        num.className = 'pg-num';
+        num.textContent = `p. ${p}`;
+        num.title = `Preview page ${p}`;
+        chip.append(cb, num);
+        grid.appendChild(chip);
+      }
+      li.appendChild(grid);
+    }
+    grid.hidden = false;
+    syncCheckboxes();
+  }
+
+  /* ---------------- page preview ---------------- */
+
+  function loadPreviewDoc() {
+    const pag = app().state.layout.pagination;
+    if (previewDoc && previewDoc.pag === pag) return previewDoc.promise;
+    const promise = (async () => {
+      const pdfjs = await import('./vendor/pdf.min.mjs');
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL('./vendor/pdf.worker.min.mjs', location.href).href;
+      const bytes = await wolf.getLayoutPdf(app().state.bookId);
+      if (!bytes) throw new Error('The page layout isn’t available.');
+      return pdfjs.getDocument({ data: bytes, isEvalSupported: false }).promise;
+    })();
+    previewDoc = { pag, promise };
+    promise.catch(() => {
+      if (previewDoc && previewDoc.promise === promise) previewDoc = null;
+    });
+    return promise;
+  }
+
+  async function showPreview(page) {
+    const pag = app().state.layout.pagination;
+    if (!pag || page < 1 || page > pag.totalPages) return;
+    ui.previewPage = page;
+    const token = ++previewToken;
+    $('page-preview').hidden = false;
+    $('preview-label').textContent = `Print page ${page} of ${pag.totalPages}`;
+    $('preview-prev').disabled = page <= 1;
+    $('preview-next').disabled = page >= pag.totalPages;
+    const msg = $('preview-msg');
+    const canvas = $('preview-canvas');
+    syncCheckboxes();
+    const chip = $('chapter-list').querySelector(`.page-chip[data-page="${page}"]`);
+    if (chip) chip.scrollIntoView({ block: 'nearest' });
+    msg.hidden = false;
+    msg.textContent = 'Loading preview…';
+    canvas.hidden = true;
+    try {
+      const doc = await loadPreviewDoc();
+      const pdfPage = await doc.getPage(page);
+      if (token !== previewToken) return;
+      const base = pdfPage.getViewport({ scale: 1 });
+      const cssWidth = 220;
+      const ratio = window.devicePixelRatio || 1;
+      const viewport = pdfPage.getViewport({ scale: (cssWidth / base.width) * ratio });
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      canvas.style.width = cssWidth + 'px';
+      await pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      if (token !== previewToken) return;
+      canvas.hidden = false;
+      msg.hidden = true;
+    } catch (err) {
+      if (token !== previewToken) return;
+      canvas.hidden = true;
+      msg.hidden = false;
+      msg.textContent = 'This page can’t be previewed.';
     }
   }
 
@@ -138,6 +294,7 @@ window.PrintDialog = (function () {
       return;
     }
     const sel = selection();
+    syncCheckboxes();
     for (const msg of sel.errors) {
       const li = document.createElement('li');
       li.textContent = msg;
@@ -246,6 +403,8 @@ window.PrintDialog = (function () {
     }
     if (L.pagination && renderedFor !== L.pagination) {
       renderedFor = L.pagination;
+      ui.previewPage = null;
+      $('page-preview').hidden = true;
       $('mode-all-detail').textContent = `All ${plural(L.pagination.totalPages, 'page')}`;
       renderChapters();
     }
@@ -381,6 +540,13 @@ window.PrintDialog = (function () {
     const cb = e.target;
     if (!cb.matches('input[type=checkbox]')) return;
     const pag = app().state.layout.pagination;
+    const chip = cb.closest('.page-chip');
+    if (chip) {
+      setPages([Number(chip.dataset.page)], cb.checked);
+      syncCheckboxes();
+      renderSummary();
+      return;
+    }
     const entry = entries().find((x) => x.id === cb.dataset.id);
     if (!entry) return;
     const ids = [entry.id, ...entry.descendants].filter((id) => pag.spans[id]);
@@ -389,19 +555,43 @@ window.PrintDialog = (function () {
       ids.forEach((id) => ui.checked.delete(id));
       entry.ancestors.forEach((id) => ui.checked.delete(id)); // a part is only "whole" if all of it is ticked
     }
+    setPages(spanPages(pag.spans[entry.id]), cb.checked);
     syncCheckboxes();
     renderSummary();
+  }
+
+  function onListClick(e) {
+    const pag = app().state.layout.pagination;
+    const toggle = e.target.closest('.ch-toggle');
+    if (toggle) {
+      const li = toggle.closest('li');
+      const entry = entries().find((x) => x.id === li.dataset.id);
+      if (entry && pag.spans[entry.id]) setExpanded(li, entry, !li.classList.contains('open'));
+      return;
+    }
+    const num = e.target.closest('.pg-num');
+    if (num) showPreview(Number(num.closest('.page-chip').dataset.page));
   }
 
   function selectAll(on) {
     const pag = app().state.layout.pagination;
     ui.checked = new Set(on ? entries().filter((e) => pag.spans[e.id]).map((e) => e.id) : []);
+    ui.include = new Set();
+    ui.exclude = new Set();
     syncCheckboxes();
     renderSummary();
   }
 
   document.querySelectorAll('input[name=print-mode]').forEach((r) => r.addEventListener('change', onModeChange));
   $('chapter-list').addEventListener('change', onChapterToggle);
+  $('chapter-list').addEventListener('click', onListClick);
+  $('preview-prev').addEventListener('click', () => showPreview(ui.previewPage - 1));
+  $('preview-next').addEventListener('click', () => showPreview(ui.previewPage + 1));
+  $('preview-include').addEventListener('change', (e) => {
+    setPages([ui.previewPage], e.target.checked);
+    syncCheckboxes();
+    renderSummary();
+  });
   $('chapters-all').addEventListener('click', () => selectAll(true));
   $('chapters-none').addEventListener('click', () => selectAll(false));
   $('page-range').addEventListener('input', (e) => {
@@ -424,7 +614,16 @@ window.PrintDialog = (function () {
     const { state } = app();
     if (!state.bookId) return;
     if (!ui || ui.bookId !== state.bookId) {
-      ui = { bookId: state.bookId, mode: 'all', checked: new Set(), rangeText: '' };
+      ui = {
+        bookId: state.bookId,
+        mode: 'all',
+        checked: new Set(),
+        include: new Set(),
+        exclude: new Set(),
+        expanded: new Set(),
+        previewPage: null,
+        rangeText: '',
+      };
       renderedFor = null;
     }
     $('print-heading').textContent = `Print “${state.info.title}”`;

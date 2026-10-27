@@ -7,7 +7,13 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const vendorDir = path.join(root, 'src', 'renderer', 'vendor');
 
-const files = [{ from: require.resolve('epubjs/dist/epub.min.js'), to: 'epub.min.js' }];
+const pdfjsBuild = path.join(path.dirname(require.resolve('pdfjs-dist/package.json')), 'build');
+const files = [
+  { from: require.resolve('epubjs/dist/epub.min.js'), to: 'epub.min.js' },
+  // page previews in the print dialog
+  { from: path.join(pdfjsBuild, 'pdf.min.mjs'), to: 'pdf.min.mjs' },
+  { from: path.join(pdfjsBuild, 'pdf.worker.min.mjs'), to: 'pdf.worker.min.mjs' },
+];
 
 fs.mkdirSync(vendorDir, { recursive: true });
 for (const f of files) {

@@ -104,7 +104,7 @@
               <input type="radio" name="print-mode" value="custom" />
               <span class="mode-text">
                 <strong>Choose chapters or pages</strong>
-                <span>Tick chapters, type page numbers, or both</span>
+                <span>Tick chapters, open them to pick single pages, or type page numbers</span>
               </span>
             </label>
           </fieldset>
@@ -126,6 +126,18 @@
               <input type="text" id="page-range" placeholder="e.g. 5-12, 20" autocomplete="off" spellcheck="false" />
               <p class="field-help" id="range-help">Separate pages and ranges with commas. Pages you type are printed in addition to the chapters you tick.</p>
               <ul class="field-errors" id="range-errors"></ul>
+              <div class="page-preview" id="page-preview" hidden>
+                <h3>Preview</h3>
+                <div class="preview-sheet" id="preview-sheet">
+                  <canvas id="preview-canvas" aria-label="Page preview"></canvas>
+                  <p class="preview-msg" id="preview-msg" hidden></p>
+                </div>
+                <div class="preview-bar">
+                  <button class="btn btn-icon" id="preview-prev" aria-label="Previous page">‹</button>
+                  <label class="check"><input type="checkbox" id="preview-include" /> <span id="preview-label">Page 1</span></label>
+                  <button class="btn btn-icon" id="preview-next" aria-label="Next page">›</button>
+                </div>
+              </div>
             </div>
           </div>
 
