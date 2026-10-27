@@ -14,8 +14,8 @@
     "test:e2e": "npm run build && node test/fixtures/make-fixtures.js && xvfb-run -a --server-args=\"-screen 0 1440x900x24\" node test/e2e/run-e2e.js",
     "icons": "bash scripts/make-icons.sh",
     "samples": "bash scripts/fetch-samples.sh",
-    "dist": "npm run build && electron-builder --win nsis --x64",
-    "dist:dir": "npm run build && electron-builder --win dir --x64",
+    "dist": "npm run build && electron-builder --win nsis --x64 --publish never",
+    "dist:dir": "npm run build && electron-builder --win dir --x64 --publish never",
     "test:picker": "npm run build && xvfb-run -a --server-args=\"-screen 0 1440x900x24\" node test/e2e/page-picker.js",
     "verify:package": "node test/tools/verify-package.js",
     "verify:wine-install": "node test/tools/wine-install-check.js"
