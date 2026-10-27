@@ -80,12 +80,17 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('closed', () => {
     mainWindow = null;
-    // The hidden print-layout windows would otherwise keep the process alive after the last
-    // visible window is gone (window-all-closed never fires), blocking the uninstaller.
-    closeAllBooks();
-    app.quit();
-    // If anything still holds the process open, don't linger (it would block restarts and the uninstaller).
+    // Hidden print-layout windows (and print jobs in flight) can keep the process alive after
+    // the last visible window is gone, which blocks restarting and the uninstaller. Make sure
+    // the process ends: arm a forced exit first, then clean up, then quit.
     setTimeout(() => app.exit(0), 3000).unref();
+    try {
+      closeAllBooks();
+      for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.destroy();
+    } catch (err) {
+      console.error('Cleanup on close failed:', err);
+    }
+    app.quit();
   });
   mainWindow.webContents.on('render-process-gone', (_e, details) => {
     if (details.reason === 'clean-exit') return;

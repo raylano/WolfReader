@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.2
+
+- **Wolfreader now really exits when you close it** (and starts again afterwards). A hidden
+  page-layout window or an unfinished print job could keep a background process alive that
+  blocked starting the app again and the uninstaller. The process is now ended explicitly, and
+  starting Wolfreader recovers if an old process is still around.
+- **Printing:** if a printer driver (e.g. Epson) aborts the job, the pages are printed as images
+  through plain Windows (GDI) printing instead.
+
 ## 1.1.1
 
 - **Closing the app now really quits it.** A hidden page-layout window kept Wolfreader running
