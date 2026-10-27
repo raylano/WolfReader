@@ -10,9 +10,10 @@
   "scripts": {
     "build": "node scripts/build.js",
     "start": "npm run build && electron .",
-    "test": "node --test test/unit/",
+    "test": "node --test \"test/unit/**/*.test.js\"",
     "test:e2e": "npm run build && node test/fixtures/make-fixtures.js && xvfb-run -a --server-args=\"-screen 0 1440x900x24\" node test/e2e/run-e2e.js",
     "icons": "bash scripts/make-icons.sh",
+    "samples": "bash scripts/fetch-samples.sh",
     "dist": "npm run build && electron-builder --win nsis --x64",
     "dist:dir": "npm run build && electron-builder --win dir --x64"
   },
