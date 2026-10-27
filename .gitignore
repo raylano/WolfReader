@@ -1,0 +1,16 @@
+node_modules/
+dist/
+release/
+out/
+*.log
+.DS_Store
+Thumbs.db
+
+# copied from node_modules by scripts/build.js
+src/renderer/vendor/
+
+# downloaded / generated test material (see scripts/fetch-samples.sh, test/fixtures/make-fixtures.js)
+test/samples/
+test/fixtures/generated/
+test/output/
+.scratch/
