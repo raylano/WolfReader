@@ -2,6 +2,9 @@
 
 ## 1.1.1
 
+- **Closing the app now really quits it.** A hidden page-layout window kept Wolfreader running
+  in the background after the window was closed, so it wouldn't start again and the
+  uninstaller said the app must be closed.
 - **Printing:** when the printer or Windows cancels a job after it was sent, Wolfreader now says
   so instead of the misleading “Printing was cancelled”, and the reason is logged.
 - **Printer compatibility (e.g. Epson):** a job that the driver aborts is retried automatically

@@ -75,6 +75,10 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('closed', () => {
     mainWindow = null;
+    // The hidden print-layout windows would otherwise keep the process alive after the last
+    // visible window is gone (window-all-closed never fires), blocking the uninstaller.
+    closeAllBooks();
+    app.quit();
   });
   mainWindow.webContents.on('render-process-gone', (_e, details) => {
     if (details.reason === 'clean-exit') return;
@@ -366,6 +370,8 @@ function start() {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
   });
 }
+
+app.on('before-quit', () => closeAllBooks());
 
 app.on('window-all-closed', () => {
   closeAllBooks();
