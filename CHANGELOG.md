@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1
+
+- **Printing:** when the printer or Windows cancels a job after it was sent, Wolfreader now says
+  so instead of the misleading “Printing was cancelled”, and the reason is logged.
+- **New “Print via PDF viewer” button:** opens your selection in your PDF viewer so you can
+  print with its own print window — a reliable way around printers that refuse silent jobs.
+
 ## 1.1.0 — 2026-10-27
 
 - **Pick single pages.** In the print dialog every chapter can be opened to show its pages;

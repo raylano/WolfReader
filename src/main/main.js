@@ -298,18 +298,46 @@ function registerIpc() {
     }
   });
 
+  // Fallback for printers that refuse silent jobs: write the selection to a PDF and open it in
+  // the user's PDF viewer, whose own print window talks to the printer.
+  ipcMain.handle('print:open-pdf', async (_e, { bookId, pages, fileName }) => {
+    try {
+      const pdf = await getEngine(bookId).buildPdf(pages);
+      const dir = path.join(app.getPath('temp'), 'Wolfreader');
+      await fs.promises.mkdir(dir, { recursive: true });
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      for (const f of await fs.promises.readdir(dir)) {
+        const full = path.join(dir, f);
+        const st = await fs.promises.stat(full).catch(() => null);
+        if (st && st.mtimeMs < cutoff) await fs.promises.rm(full, { force: true });
+      }
+      const file = path.join(dir, `${sanitizeFileName(fileName || 'book')} ${Date.now()}.pdf`);
+      await fs.promises.writeFile(file, pdf);
+      const error = await shell.openPath(file);
+      if (error) return { ok: false, message: `No PDF viewer could open the file (${error}). Use “Save as PDF” instead.` };
+      return { ok: true, path: file };
+    } catch (err) {
+      return errorResult(err);
+    }
+  });
+
   ipcMain.handle('print:print', async (_e, { bookId, pages, deviceName, copies, duplex, color }) => {
     try {
       const result = await getEngine(bookId).print({ pages, deviceName, copies, duplex, color });
       if (result.success) return { ok: true };
       const reason = String(result.reason || '');
-      if (/cancel/i.test(reason)) return { ok: false, cancelled: true };
+      console.error('Print job failed:', reason || '(no reason given)');
+      // Printing is silent, so the user never gets a chance to cancel: a "cancelled" job was
+      // aborted by the printer, its driver or the spooler (e.g. a virtual printer that wants a
+      // save dialog, or a paper size the printer refuses).
       return {
         ok: false,
         message:
           /invalid/i.test(reason)
             ? 'The printer rejected the print settings, or is no longer available. Check that it is switched on and connected, or choose another printer.'
-            : `Printing failed${reason ? ` (${reason})` : ''}. Check the printer, or use “Save as PDF” instead.`,
+            : /cancel/i.test(reason)
+              ? 'The printer or Windows cancelled the job after it was sent (it showed up in the print queue and was removed). Try another printer, or use “Print via PDF viewer” to print with your PDF viewer’s own print window.'
+              : `Printing failed${reason ? ` (${reason})` : ''}. Check the printer, or use “Print via PDF viewer” or “Save as PDF”.`,
       };
     } catch (err) {
       return errorResult(err);
