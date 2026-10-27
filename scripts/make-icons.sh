@@ -54,4 +54,12 @@ convert -size 164x314 gradient:"#4a2a1b"-"#1f120c" \
 convert "$TMP/full.png" -filter Lanczos -resize 560x560 -strip "$IMG/logo.png"
 convert "$TMP/badge.png" -filter Lanczos -resize 128x128 -strip "$IMG/logo-badge.png"
 
-identify "$BUILD/icon.ico" "$BUILD/installerSidebar.bmp" "$IMG/logo.png" "$IMG/logo-badge.png"
+# 6. Wordmark only (cream lettering, transparent) for the dark title bar: keep the
+#    light pixels of the banner lettering, masking the tail tip above and the book icon below.
+convert "$SRC" -crop 870x185+200+893 +repage \
+  \( +clone -colorspace HSL -channel L -separate +channel -level 62%,88% \
+     -fill black -draw "rectangle 0,0 260,24" -draw "rectangle 300,166 560,185" \) \
+  -alpha off -compose CopyOpacity -composite -trim +repage \
+  -filter Lanczos -resize x72 -strip "$IMG/wordmark.png"
+
+identify "$BUILD/icon.ico" "$BUILD/installerSidebar.bmp" "$IMG/logo.png" "$IMG/logo-badge.png" "$IMG/wordmark.png"

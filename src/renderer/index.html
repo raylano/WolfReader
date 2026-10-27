@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Wolfreader</title>
+    <link rel="icon" href="img/logo-badge.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="state-empty">
+    <header class="topbar">
+      <div class="brand">
+        <img class="brand-badge" src="img/logo-badge.png" alt="" />
+        <img class="brand-wordmark" src="img/wordmark.png" alt="Wolfreader" />
+      </div>
+      <div class="topbar-book" id="topbar-book" hidden>
+        <span class="topbar-title" id="topbar-title"></span>
+      </div>
+      <nav class="topbar-actions">
+        <button class="btn btn-ghost" id="btn-open" title="Open an EPUB book (Ctrl+O)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2.5h6.5A2.5 2.5 0 0 1 21 9v8.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z" /></svg>
+          Open
+        </button>
+        <button class="btn btn-primary" id="btn-print" title="Print (Ctrl+P)" disabled>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3.5h10V9M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 14h10v6.5H7z" /></svg>
+          Print
+        </button>
+        <button class="btn btn-icon" id="btn-about" title="About Wolfreader" aria-label="About Wolfreader">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg>
+        </button>
+      </nav>
+    </header>
+
+    <!-- Empty state -->
+    <section class="welcome" id="welcome">
+      <div class="welcome-inner">
+        <img class="welcome-logo" src="img/logo.png" alt="Wolfreader logo: a sleepy wolf reading in an armchair" />
+        <p class="welcome-tagline">Open an EPUB, read it, and print the whole book — or just the chapters and pages you need.</p>
+        <button class="btn btn-primary btn-large" id="btn-open-welcome">Open EPUB…</button>
+        <p class="welcome-hint">or drop an <strong>.epub</strong> file anywhere in this window</p>
+        <div class="notice notice-error" id="welcome-error" role="alert" hidden></div>
+      </div>
+    </section>
+
+    <!-- Loading -->
+    <section class="loading" id="loading" hidden>
+      <div class="spinner" aria-hidden="true"></div>
+      <p id="loading-text">Opening book…</p>
+    </section>
+
+    <!-- Book view -->
+    <section class="reader" id="reader" hidden>
+      <aside class="sidebar">
+        <div class="book-card">
+          <div class="cover" id="cover"><span class="cover-fallback" aria-hidden="true">📖</span></div>
+          <div class="book-meta">
+            <h1 class="book-title" id="book-title"></h1>
+            <p class="book-author" id="book-author"></p>
+            <p class="book-pages" id="book-pages"></p>
+          </div>
+        </div>
+        <h2 class="sidebar-heading">Contents</h2>
+        <p class="sidebar-note" id="toc-note" hidden></p>
+        <nav class="toc" id="toc" aria-label="Table of contents"></nav>
+      </aside>
+      <main class="pane">
+        <div class="notice notice-warn pane-notice" id="reader-notice" role="status" hidden></div>
+        <div class="viewer" id="viewer"></div>
+        <footer class="pager">
+          <button class="btn btn-quiet" id="btn-prev" aria-label="Previous chapter">‹ Previous</button>
+          <span class="pager-label" id="pager-label"></span>
+          <div class="pager-right">
+            <button class="btn btn-quiet btn-small" id="btn-font-down" title="Smaller text" aria-label="Smaller text">A−</button>
+            <button class="btn btn-quiet btn-small" id="btn-font-up" title="Larger text" aria-label="Larger text">A+</button>
+            <button class="btn btn-quiet" id="btn-next" aria-label="Next chapter">Next ›</button>
+          </div>
+        </footer>
+      </main>
+    </section>
+
+    <!-- Drop overlay -->
+    <div class="drop-overlay" id="drop-overlay" hidden>
+      <div class="drop-card">Drop the EPUB to open it</div>
+    </div>
+
+    <!-- Print dialog -->
+    <div class="modal-backdrop" id="print-modal" hidden>
+      <div class="modal print-dialog" role="dialog" aria-modal="true" aria-labelledby="print-heading">
+        <header class="modal-header">
+          <h2 id="print-heading">Print</h2>
+          <button class="btn btn-icon btn-close" data-close aria-label="Close">×</button>
+        </header>
+
+        <div class="modal-body">
+          <fieldset class="mode-choice">
+            <legend>What would you like to print?</legend>
+            <label class="mode-card">
+              <input type="radio" name="print-mode" value="all" checked />
+              <span class="mode-text">
+                <strong>Entire book</strong>
+                <span id="mode-all-detail">All pages</span>
+              </span>
+            </label>
+            <label class="mode-card">
+              <input type="radio" name="print-mode" value="custom" />
+              <span class="mode-text">
+                <strong>Choose chapters or pages</strong>
+                <span>Tick chapters, type page numbers, or both</span>
+              </span>
+            </label>
+          </fieldset>
+
+          <div class="custom-select" id="custom-select" hidden>
+            <div class="chapter-panel">
+              <div class="panel-head">
+                <h3>Chapters</h3>
+                <span class="panel-links">
+                  <button class="link" id="chapters-all">Select all</button>
+                  <button class="link" id="chapters-none">Clear</button>
+                </span>
+              </div>
+              <p class="sidebar-note" id="chapters-note" hidden></p>
+              <ul class="chapter-list" id="chapter-list"></ul>
+            </div>
+            <div class="range-panel">
+              <h3><label for="page-range">Pages</label></h3>
+              <input type="text" id="page-range" placeholder="e.g. 5-12, 20" autocomplete="off" spellcheck="false" />
+              <p class="field-help" id="range-help">Separate pages and ranges with commas. Pages you type are printed in addition to the chapters you tick.</p>
+              <ul class="field-errors" id="range-errors"></ul>
+            </div>
+          </div>
+
+          <div class="summary" id="selection-summary" aria-live="polite"></div>
+
+          <div class="settings-grid">
+            <div class="field">
+              <span class="field-label">Paper</span>
+              <div class="segmented" role="radiogroup" aria-label="Paper size">
+                <label><input type="radio" name="paper" value="A4" checked /><span>A4</span></label>
+                <label><input type="radio" name="paper" value="Letter" /><span>Letter</span></label>
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="printer">Printer</label>
+              <select id="printer"></select>
+            </div>
+            <div class="field field-narrow">
+              <label class="field-label" for="copies">Copies</label>
+              <input type="number" id="copies" min="1" max="99" value="1" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="duplex">Two-sided</label>
+              <select id="duplex">
+                <option value="simplex">Off (one-sided)</option>
+                <option value="longEdge">Flip on long edge</option>
+                <option value="shortEdge">Flip on short edge</option>
+              </select>
+            </div>
+            <div class="field">
+              <span class="field-label">Color</span>
+              <label class="check"><input type="checkbox" id="color" checked /> Print in color</label>
+            </div>
+          </div>
+
+          <div class="notice" id="print-status" role="status" hidden></div>
+
+          <div class="preparing" id="preparing" hidden>
+            <div class="spinner" aria-hidden="true"></div>
+            <div>
+              <strong id="preparing-title">Laying out pages…</strong>
+              <p id="preparing-detail">Wolfreader is arranging the book onto printable pages so every chapter has exact page numbers.</p>
+              <div class="progress"><div class="progress-bar" id="preparing-bar"></div></div>
+            </div>
+            <button class="btn btn-quiet" id="preparing-cancel">Cancel</button>
+          </div>
+        </div>
+
+        <footer class="modal-footer">
+          <button class="btn btn-quiet" data-close>Cancel</button>
+          <span class="spacer"></span>
+          <button class="btn btn-ghost-dark" id="btn-save-pdf">Save as PDF…</button>
+          <button class="btn btn-primary" id="btn-do-print">Print</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- About dialog -->
+    <div class="modal-backdrop" id="about-modal" hidden>
+      <div class="modal about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-heading">
+        <button class="btn btn-icon btn-close about-close" data-close aria-label="Close">×</button>
+        <img class="about-logo" src="img/logo.png" alt="" />
+        <h2 id="about-heading">Wolfreader</h2>
+        <p class="about-version" id="about-version"></p>
+        <p>A cozy little EPUB reader that prints exactly what you want: the whole book, chosen chapters, or specific pages.</p>
+        <p class="about-small">Opens DRM-free EPUB 2 and EPUB 3 books. Released under the MIT license.</p>
+        <button class="btn btn-primary" data-close>Close</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+
+    <script src="shared/selection.js"></script>
+    <script src="vendor/epub.min.js"></script>
+    <script src="print-dialog.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
