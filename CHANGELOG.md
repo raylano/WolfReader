@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.1
+
+- **Closing the app now really quits it.** A hidden page-layout window kept Wolfreader running
+  in the background after the window was closed, so it wouldn't start again and the
+  uninstaller said the app must be closed.
+- **Printing:** when the printer or Windows cancels a job after it was sent, Wolfreader now says
+  so instead of the misleading “Printing was cancelled”, and the reason is logged.
+- **Printer compatibility (e.g. Epson):** a job that the driver aborts is retried automatically
+  with fewer settings (no paper size, margins or collate — the printer's own defaults). Every
+  attempt is logged to `%APPDATA%\Wolfreader\print.log`.
+- **New “Print via PDF viewer” button:** opens your selection in your PDF viewer so you can
+  print with its own print window — a reliable way around printers that refuse silent jobs.
+
 ## 1.1.0 — 2026-10-27
 
 - **Pick single pages.** In the print dialog every chapter can be opened to show its pages;

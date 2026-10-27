@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('wolf', {
   getLayoutPdf: (bookId) => ipcRenderer.invoke('layout:pdf', bookId),
   listPrinters: () => ipcRenderer.invoke('print:printers'),
   savePdf: (req) => ipcRenderer.invoke('print:save-pdf', req),
+  openPdf: (req) => ipcRenderer.invoke('print:open-pdf', req),
   print: (req) => ipcRenderer.invoke('print:print', req),
 
   onMenu: (cb) => listen('menu', cb),

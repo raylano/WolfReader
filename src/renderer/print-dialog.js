@@ -290,7 +290,7 @@ window.PrintDialog = (function () {
     if (!pag) {
       el.className = 'summary empty';
       el.innerHTML = '<span class="count">Counting pages…</span>';
-      printBtn.disabled = pdfBtn.disabled = true;
+      printBtn.disabled = pdfBtn.disabled = $('btn-open-pdf').disabled = true;
       return;
     }
     const sel = selection();
@@ -326,6 +326,7 @@ window.PrintDialog = (function () {
 
     const blocked = busy || sel.pages.length === 0 || sel.errors.length > 0;
     pdfBtn.disabled = blocked;
+    $('btn-open-pdf').disabled = blocked;
     printBtn.disabled = blocked || printers === null || (Array.isArray(printers) && printers.length === 0);
     printBtn.textContent = sel.pages.length ? `Print ${plural(sel.pages.length, 'page')}` : 'Print';
   }
@@ -472,7 +473,7 @@ window.PrintDialog = (function () {
 
   function setBusy(on) {
     busy = on;
-    for (const id of ['btn-do-print', 'btn-save-pdf']) $(id).disabled = on;
+    for (const id of ['btn-do-print', 'btn-save-pdf', 'btn-open-pdf']) $(id).disabled = on;
     if (!on) renderSummary();
   }
 
@@ -491,6 +492,25 @@ window.PrintDialog = (function () {
         showPrinterNotice();
       } else {
         setStatus('error', 'The PDF couldn’t be saved.', ' ' + (res.message || ''));
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function doOpenPdf() {
+    const sel = selection();
+    if (!sel || !sel.pages.length || sel.errors.length) return;
+    setBusy(true);
+    setStatus('info', 'Preparing PDF…', '');
+    try {
+      const res = await wolf.openPdf({ bookId: app().state.bookId, pages: sel.pages, fileName: suggestedName(sel) });
+      if (res.ok) {
+        setStatus(null);
+        close(true);
+        app().toast(`Opened ${plural(sel.pages.length, 'page')} in your PDF viewer — print from there.`, { timeout: 7000 });
+      } else {
+        setStatus('error', 'The PDF couldn’t be opened.', ' ' + (res.message || ''));
       }
     } finally {
       setBusy(false);
@@ -604,6 +624,7 @@ window.PrintDialog = (function () {
   $('preparing-cancel').addEventListener('click', () => app().cancelLayout());
   $('btn-do-print').addEventListener('click', doPrint);
   $('btn-save-pdf').addEventListener('click', doSavePdf);
+  $('btn-open-pdf').addEventListener('click', doOpenPdf);
   $('copies').addEventListener('change', (e) => {
     e.target.value = Math.max(1, Math.min(99, parseInt(e.target.value, 10) || 1));
   });
