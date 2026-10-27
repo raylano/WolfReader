@@ -7,6 +7,7 @@ const path = require('path');
 const { EpubArchive, EpubError } = require('./epub-archive');
 const { PrintEngine } = require('./print-engine');
 const gdi = require('./gdi-print');
+const updater = require('./updater');
 const { log: printLog, logPath: printLogPath, appLog } = require('./print-log');
 const { ORIGIN, registerPrivileges, handleProtocol } = require('./protocol');
 const settings = require('./settings');
@@ -73,14 +74,14 @@ function bringToFront() {
 
 /**
  * Ends this process for certain. On Windows a detached taskkill "watchdog" is started first: if
- * Chromium's own shutdown hangs (seen after printing), it kills the process tree after ~5 s, so
+ * Chromium's own shutdown hangs (seen after printing), it kills the process after ~5 s, so
  * Wolfreader can always be started again and uninstalled.
  */
 function exitForSure() {
   if (process.platform === 'win32') {
     try {
       const image = path.basename(process.execPath);
-      const cmd = `ping -n 6 127.0.0.1 >nul & taskkill /F /T /PID ${process.pid} /FI "IMAGENAME eq ${image}" >nul 2>&1`;
+      const cmd = `ping -n 6 127.0.0.1 >nul & taskkill /F /PID ${process.pid} /FI "IMAGENAME eq ${image}" >nul 2>&1`;
       // Verbatim: cmd.exe doesn't understand Node's \" quoting of the inner filter quotes.
       spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `"${cmd}"`], {
         detached: true,
@@ -127,6 +128,7 @@ function createMainWindow() {
     } catch (err) {
       appLog(`cleanup on close failed: ${err.message}`);
     }
+    updater.installOnExit();
     exitForSure();
   });
   mainWindow.webContents.on('render-process-gone', (_e, details) => {
@@ -169,7 +171,11 @@ function buildMenu() {
     },
     {
       label: '&Help',
-      submenu: [{ label: 'About Wolfreader', click: send('about') }],
+      submenu: [
+        { label: 'Check for Updates…', click: send('check-updates') },
+        { type: 'separator' },
+        { label: 'About Wolfreader', click: send('about') },
+      ],
     },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -227,6 +233,11 @@ function registerIpc() {
     electron: process.versions.electron,
     chrome: process.versions.chrome,
   }));
+
+  ipcMain.handle('update:status', () => updater.getStatus());
+  ipcMain.handle('update:check', () => updater.check(true));
+  ipcMain.handle('update:download', () => updater.download());
+  ipcMain.handle('update:install', () => updater.install());
 
   ipcMain.handle('app:take-pending-file', () => {
     const file = pendingFile;
@@ -425,6 +436,7 @@ function start() {
   registerIpc();
   buildMenu();
   createMainWindow();
+  updater.setup({ send: sendToUi, log: appLog });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();

@@ -269,6 +269,29 @@ select:focus-visible {
   background: rgba(0, 0, 0, 0.12);
 }
 
+/* ---------------- update banner ---------------- */
+
+.update-banner {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--amber-200);
+  color: var(--ink-900);
+  border-bottom: 1px solid var(--cream-400);
+  font-size: 13.5px;
+}
+.update-text {
+  flex: 1;
+  min-width: 0;
+}
+.about-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
 /* ---------------- welcome ---------------- */
 
 .welcome {

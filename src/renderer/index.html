@@ -30,6 +30,11 @@
       </nav>
     </header>
     <nav class="tabbar" id="tabbar" role="tablist" aria-label="Open books" hidden></nav>
+    <div class="update-banner" id="update-banner" role="status" hidden>
+      <span class="update-text" id="update-text"></span>
+      <button class="btn btn-primary btn-small" id="update-action"></button>
+      <button class="btn btn-quiet btn-small" id="update-later">Later</button>
+    </div>
 
     <!-- Empty state -->
     <section class="welcome" id="welcome">
@@ -206,7 +211,11 @@
         <p class="about-version" id="about-version"></p>
         <p>A cozy little EPUB reader that prints exactly what you want: the whole book, chosen chapters, or specific pages.</p>
         <p class="about-small">Opens DRM-free EPUB 2 and EPUB 3 books. Released under the MIT license.</p>
-        <button class="btn btn-primary" data-close>Close</button>
+        <p class="about-small" id="about-update" hidden></p>
+        <div class="about-actions">
+          <button class="btn btn-quiet" id="btn-check-updates">Check for updates</button>
+          <button class="btn btn-primary" data-close>Close</button>
+        </div>
       </div>
     </div>
 

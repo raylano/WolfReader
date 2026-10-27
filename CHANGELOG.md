@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0
+
+- **Automatic updates.** Wolfreader checks GitHub for a newer release shortly after starting
+  (and every few hours). A bar at the top offers **Download and install**; once downloaded,
+  **Restart now** installs it — or it installs when you close Wolfreader. You can also check
+  yourself via *Help → Check for Updates…* or the About window.
+
 ## 1.2.0
 
 - **Tabs.** Every book you open gets its own tab; switch between books without losing your

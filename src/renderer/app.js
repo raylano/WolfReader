@@ -128,6 +128,84 @@
     openModal('about-modal');
   }
 
+  /* ---------------- updates ---------------- */
+
+  let updateDismissed = null; // version the user said "Later" to
+  let lastUpdate = { state: 'idle' };
+
+  function showUpdate(s) {
+    lastUpdate = s || { state: 'idle' };
+    const banner = $('update-banner');
+    const text = $('update-text');
+    const action = $('update-action');
+    const later = $('update-later');
+    const about = $('about-update');
+    action.disabled = false;
+    later.hidden = false;
+    let show = false;
+    let aboutText = '';
+    switch (lastUpdate.state) {
+      case 'available':
+        show = updateDismissed !== lastUpdate.version;
+        text.textContent = `Wolfreader ${lastUpdate.version} is available (you have ${lastUpdate.current}).`;
+        action.textContent = 'Download and install';
+        action.dataset.do = 'download';
+        aboutText = `Version ${lastUpdate.version} is available.`;
+        break;
+      case 'downloading':
+        show = true;
+        text.textContent = `Downloading the update… ${lastUpdate.percent || 0}%`;
+        action.textContent = 'Downloading…';
+        action.disabled = true;
+        later.hidden = true;
+        aboutText = text.textContent;
+        break;
+      case 'downloaded':
+        show = true;
+        text.textContent = `Wolfreader ${lastUpdate.version} is ready. Restart to update — or it installs when you close Wolfreader.`;
+        action.textContent = 'Restart now';
+        action.dataset.do = 'install';
+        aboutText = `Version ${lastUpdate.version} is ready to install.`;
+        break;
+      case 'checking':
+        aboutText = 'Checking for updates…';
+        break;
+      case 'latest':
+        aboutText = 'You have the latest version.';
+        break;
+      case 'unsupported':
+        aboutText = 'Updates are only available in the installed Windows app.';
+        break;
+      case 'error':
+        aboutText = lastUpdate.message || 'Checking for updates didn’t work.';
+        break;
+    }
+    banner.hidden = !show;
+    about.textContent = aboutText;
+    about.hidden = !aboutText;
+  }
+
+  async function checkForUpdates() {
+    showAbout();
+    showUpdate({ state: 'checking' });
+    showUpdate(await wolf.checkForUpdates());
+  }
+
+  $('update-action').addEventListener('click', async () => {
+    const what = $('update-action').dataset.do;
+    if (what === 'download') showUpdate(await wolf.downloadUpdate());
+    else if (what === 'install') wolf.installUpdate();
+  });
+  $('update-later').addEventListener('click', () => {
+    if (lastUpdate.state === 'available') updateDismissed = lastUpdate.version;
+    $('update-banner').hidden = true;
+  });
+  $('btn-check-updates').addEventListener('click', async () => {
+    showUpdate({ state: 'checking' });
+    showUpdate(await wolf.checkForUpdates());
+  });
+  wolf.onUpdateStatus(showUpdate);
+
   /* ---------------- opening books ---------------- */
 
   async function pickAndOpen() {
@@ -831,6 +909,7 @@
     else if (cmd === 'print' && state.bookId) PrintDialog.open();
     else if (cmd === 'close') closeBook();
     else if (cmd === 'about') showAbout();
+    else if (cmd === 'check-updates') checkForUpdates();
   });
   wolf.onOpenFile((file) => openPath(file));
 
@@ -844,6 +923,7 @@
       state.settings = {};
     }
     state.layout.paper = defaultPaper();
+    wolf.updateStatus().then(showUpdate, () => {});
     const pending = await wolf.takePendingFile();
     if (pending) openPath(pending);
   })();

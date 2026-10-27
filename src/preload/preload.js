@@ -34,6 +34,12 @@ contextBridge.exposeInMainWorld('wolf', {
   gdiEnd: (jobId) => ipcRenderer.invoke('gdi:end', jobId),
   print: (req) => ipcRenderer.invoke('print:print', req),
 
+  updateStatus: () => ipcRenderer.invoke('update:status'),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  onUpdateStatus: (cb) => listen('update:status', cb),
+
   onMenu: (cb) => listen('menu', cb),
   onOpenFile: (cb) => listen('app:open-file', cb),
   onLayoutProgress: (cb) => listen('layout:progress', cb),
