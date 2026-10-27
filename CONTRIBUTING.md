@@ -23,6 +23,4 @@ developer guide and [TESTING.md](TESTING.md) for the verification suite.
 
 ## Releases
 
-Maintainers: bump `version` in `package.json`, update `CHANGELOG.md`, then push a tag
-(`git tag v1.2.3 && git push origin v1.2.3`). GitHub Actions builds the installer and attaches
-it to the release.
+Maintainers: bump `version` in `package.json` and update `CHANGELOG.md`, then merge to `main`.
