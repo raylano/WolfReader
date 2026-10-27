@@ -38,10 +38,14 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on('second-instance', (_event, argv) => {
     const file = findEpubArg(argv);
+    if (file) pendingFile = file;
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
       if (file) sendToUi('app:open-file', file);
+    } else if (app.isReady()) {
+      // A process that outlived its window must not make Wolfreader impossible to start again.
+      createMainWindow();
     }
   });
   app.on('open-file', (event, file) => {
@@ -80,6 +84,8 @@ function createMainWindow() {
     // visible window is gone (window-all-closed never fires), blocking the uninstaller.
     closeAllBooks();
     app.quit();
+    // If anything still holds the process open, don't linger (it would block restarts and the uninstaller).
+    setTimeout(() => app.exit(0), 3000).unref();
   });
   mainWindow.webContents.on('render-process-gone', (_e, details) => {
     if (details.reason === 'clean-exit') return;
