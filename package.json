@@ -15,7 +15,9 @@
     "icons": "bash scripts/make-icons.sh",
     "samples": "bash scripts/fetch-samples.sh",
     "dist": "npm run build && electron-builder --win nsis --x64",
-    "dist:dir": "npm run build && electron-builder --win dir --x64"
+    "dist:dir": "npm run build && electron-builder --win dir --x64",
+    "verify:package": "node test/tools/verify-package.js",
+    "verify:wine-install": "node test/tools/wine-install-check.js"
   },
   "build": {
     "appId": "app.wolfreader.desktop",
