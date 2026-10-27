@@ -517,6 +517,36 @@ window.PrintDialog = (function () {
     }
   }
 
+  /** Renders the pages with pdf.js and hands the PNGs to the main process for GDI printing. */
+  async function printAsImages(pages, { deviceName, copies, duplex, color }) {
+    let jobId = null;
+    try {
+      const doc = await loadPreviewDoc();
+      jobId = await wolf.gdiBegin();
+      const canvas = document.createElement('canvas');
+      for (let i = 0; i < pages.length; i++) {
+        setStatus('info', `Preparing page ${i + 1} of ${pages.length}…`, '');
+        const page = await doc.getPage(pages[i]);
+        const viewport = page.getViewport({ scale: 200 / 72 }); // 200 dpi
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+        await wolf.gdiPage({ jobId, index: i + 1, bytes: new Uint8Array(await blob.arrayBuffer()) });
+        page.cleanup();
+      }
+      setStatus('info', `Sending ${plural(pages.length, 'page')} to the printer…`, '');
+      return await wolf.gdiRun({ jobId, deviceName, copies, duplex, color, paper: app().state.layout.paper });
+    } catch (err) {
+      return { ok: false, message: 'The pages couldn’t be prepared for printing. Use “Print via PDF viewer” instead.' };
+    } finally {
+      if (jobId) wolf.gdiEnd(jobId);
+    }
+  }
+
   async function doPrint() {
     const sel = selection();
     if (!sel || !sel.pages.length || sel.errors.length) return;
@@ -532,7 +562,12 @@ window.PrintDialog = (function () {
     setBusy(true);
     setStatus('info', `Sending ${plural(sel.pages.length, 'page')} to ${printerLabel}…`, '');
     try {
-      const res = await wolf.print({ bookId: app().state.bookId, pages: sel.pages, deviceName, copies, duplex, color });
+      let res = await wolf.print({ bookId: app().state.bookId, pages: sel.pages, deviceName, copies, duplex, color });
+      if (!res.ok && res.fallback) {
+        // The driver aborted Chromium's job: print the pages as images through plain Windows printing.
+        setStatus('info', 'The first way of printing didn’t work — trying another way…', '');
+        res = await printAsImages(sel.pages, { deviceName, copies, duplex, color });
+      }
       if (res.ok) {
         setStatus(null);
         close(true);

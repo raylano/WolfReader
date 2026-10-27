@@ -28,6 +28,10 @@ contextBridge.exposeInMainWorld('wolf', {
   listPrinters: () => ipcRenderer.invoke('print:printers'),
   savePdf: (req) => ipcRenderer.invoke('print:save-pdf', req),
   openPdf: (req) => ipcRenderer.invoke('print:open-pdf', req),
+  gdiBegin: () => ipcRenderer.invoke('gdi:begin'),
+  gdiPage: (req) => ipcRenderer.invoke('gdi:page', req),
+  gdiRun: (req) => ipcRenderer.invoke('gdi:run', req),
+  gdiEnd: (jobId) => ipcRenderer.invoke('gdi:end', jobId),
   print: (req) => ipcRenderer.invoke('print:print', req),
 
   onMenu: (cb) => listen('menu', cb),

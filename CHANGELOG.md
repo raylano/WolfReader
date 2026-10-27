@@ -7,7 +7,9 @@
   uninstaller said the app must be closed.
 - **Printing:** when the printer or Windows cancels a job after it was sent, Wolfreader now says
   so instead of the misleading “Printing was cancelled”, and the reason is logged.
-- **Printer compatibility (e.g. Epson):** a job that the driver aborts is retried automatically
+- **Printer compatibility (e.g. Epson):** if a driver still aborts the job, the pages are printed
+  as images through plain Windows (GDI) printing instead, bypassing Chromium's print pipeline.
+  Before that, a job that the driver aborts is retried automatically
   with fewer settings (no paper size, margins or collate — the printer's own defaults). Every
   attempt is logged to `%APPDATA%\Wolfreader\print.log`.
 - **New “Print via PDF viewer” button:** opens your selection in your PDF viewer so you can
