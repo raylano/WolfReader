@@ -17,7 +17,7 @@ Wolfreader is deliberately simple: no library, bookmarks, sync or annotations.
 
 ## Using the installed app
 
-1. Run `Wolfreader-Setup-1.0.0.exe` and follow the installer (per-user install, no admin
+1. Run `Wolfreader-Setup-1.0.1.exe` and follow the installer (per-user install, no admin
    rights needed; you can choose the folder). It adds Start Menu and desktop shortcuts and
    registers Wolfreader for `.epub` files.
 2. Start **Wolfreader** and click **Open EPUB…** (or drop a `.epub` file on the window).
@@ -49,7 +49,7 @@ npm test           # unit tests (page ranges, chapter spans, selection)
 ### Building the Windows installer
 
 ```bash
-npm run dist       # -> release/Wolfreader-Setup-1.0.0.exe (NSIS, win32 x64)
+npm run dist       # -> release/Wolfreader-Setup-1.0.1.exe (NSIS, win32 x64)
 npm run dist:dir   # unpacked app only, in release/win-unpacked/
 ```
 
