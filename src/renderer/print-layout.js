@@ -372,8 +372,14 @@
       probe.src = href;
       waits.push(probe.decode().catch(() => {}));
     }
-    waits.push(document.fonts.ready);
+    // Web fonts only start loading once layout asks for them, and print doesn't
+    // wait for them: force layout, then load every declared face explicitly.
+    void document.body.offsetHeight;
+    for (const face of document.fonts) {
+      if (face.status === 'unloaded') waits.push(face.load().catch(() => {}));
+    }
     await Promise.race([Promise.all(waits), new Promise((r) => setTimeout(r, timeoutMs))]);
+    await document.fonts.ready;
   }
 
   /* ---------------- entry point ---------------- */
