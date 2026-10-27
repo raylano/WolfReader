@@ -50,6 +50,8 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: Wolfreader ${{ steps.v.outputs.version }}
           generate_release_notes: true
+          # latest.yml is what the app's auto-updater reads to find new versions
           files: |
             release/Wolfreader-Setup-*.exe
             release/Wolfreader-Setup-*.exe.blockmap
+            release/latest.yml

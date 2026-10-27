@@ -29,6 +29,7 @@ gives you full control over what goes to the printer (or into a PDF).
 
 - 📖 **Read EPUBs** — cover, table of contents and a comfortable reading pane. Open with a
   button, drag-and-drop, or double-click a `.epub` once installed.
+- 🗂️ **Tabs** — open several books at once and switch between them.
 - 🖨️ **Print the entire book** or **choose what to print**:
   - tick whole **chapters** from the table of contents (parts select all their chapters),
   - **open a chapter** to see its pages and tick or untick **single pages**,
@@ -40,7 +41,10 @@ gives you full control over what goes to the printer (or into a PDF).
 - ⚙️ A4 or Letter, any installed printer, copies, two-sided and color.
 - 🔢 Page numbers on every printed page that match the numbers in the dialog, so “pages
   12–20” prints the pages labelled 12–20.
-- 🔒 **Private and offline** — nothing leaves your computer; book scripts never run.
+- 🔄 **Automatic updates** — Wolfreader tells you when a new version is out and installs it
+  with one click.
+- 🔒 **Private** — your books never leave your computer and book scripts never run; the only
+  network request is the update check against GitHub.
 
 Wolfreader is deliberately simple: no library, bookmarks, sync or annotations.
 
@@ -55,6 +59,9 @@ Wolfreader is deliberately simple: no library, bookmarks, sync or annotations.
    [latest release](https://github.com/raylano/WolfReader/releases/latest).
 2. Run it. It installs per user (no admin rights needed), lets you pick the folder, adds Start
    Menu and desktop shortcuts and registers Wolfreader for `.epub` files.
+
+Wolfreader keeps itself up to date: when a new release is published here, the app offers to
+install it.
 
 > **Heads up:** the installer isn't code-signed yet, so Windows SmartScreen may say “Windows
 > protected your PC”. Click **More info → Run anyway**.
@@ -99,6 +106,7 @@ npm run build      # copies epub.js into src/renderer/vendor
 npm start          # build + run the app in development mode
 npm test           # unit tests (page ranges, chapter spans, selection)
 npm run test:picker  # e2e check of the chapter/page picker and preview (needs xvfb-run on Linux)
+npm run test:tabs    # e2e check of tabs and opening books from a second process
 ```
 
 ### Building the Windows installer

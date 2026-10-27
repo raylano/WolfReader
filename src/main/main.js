@@ -1,12 +1,14 @@
 'use strict';
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell, session } = require('electron');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { EpubArchive, EpubError } = require('./epub-archive');
 const { PrintEngine } = require('./print-engine');
 const gdi = require('./gdi-print');
-const { log: printLog, logPath: printLogPath } = require('./print-log');
+const updater = require('./updater');
+const { log: printLog, logPath: printLogPath, appLog } = require('./print-log');
 const { ORIGIN, registerPrivileges, handleProtocol } = require('./protocol');
 const settings = require('./settings');
 
@@ -33,17 +35,19 @@ function sendToUi(channel, payload) {
 
 /* ---------------- single instance + file association ---------------- */
 
-if (!app.requestSingleInstanceLock()) {
+const gotLock = app.requestSingleInstanceLock();
+appLog(`start ${app.getVersion()} lock=${gotLock} argv=${JSON.stringify(process.argv.slice(1))}`);
+if (!gotLock) {
   app.quit();
 } else {
   app.on('second-instance', (_event, argv) => {
     const file = findEpubArg(argv);
-    if (file) pendingFile = file;
+    appLog(`second-instance file=${file} window=${Boolean(mainWindow)} argv=${JSON.stringify(argv.slice(1))}`);
     if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
+      bringToFront();
       if (file) sendToUi('app:open-file', file);
     } else if (app.isReady()) {
+      if (file) pendingFile = file;
       // A process that outlived its window must not make Wolfreader impossible to start again.
       createMainWindow();
     }
@@ -57,6 +61,40 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 /* ---------------- windows ---------------- */
+
+/** Windows blocks focus() from a background app; briefly going always-on-top gets past that. */
+function bringToFront() {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.setAlwaysOnTop(true);
+  mainWindow.focus();
+  mainWindow.setAlwaysOnTop(false);
+}
+
+/**
+ * Ends this process for certain. On Windows a detached taskkill "watchdog" is started first: if
+ * Chromium's own shutdown hangs (seen after printing), it kills the process after ~5 s, so
+ * Wolfreader can always be started again and uninstalled.
+ */
+function exitForSure() {
+  if (process.platform === 'win32') {
+    try {
+      const image = path.basename(process.execPath);
+      const cmd = `ping -n 6 127.0.0.1 >nul & taskkill /F /PID ${process.pid} /FI "IMAGENAME eq ${image}" >nul 2>&1`;
+      // Verbatim: cmd.exe doesn't understand Node's \" quoting of the inner filter quotes.
+      spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `"${cmd}"`], {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true,
+        windowsVerbatimArguments: true,
+      }).unref();
+    } catch (err) {
+      appLog(`watchdog failed: ${err.message}`);
+    }
+  }
+  app.exit(0);
+}
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -79,18 +117,19 @@ function createMainWindow() {
   });
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('closed', () => {
+    appLog('main window closed');
     mainWindow = null;
     // Hidden print-layout windows (and print jobs in flight) can keep the process alive after
-    // the last visible window is gone, which blocks restarting and the uninstaller. Make sure
-    // the process ends: arm a forced exit first, then clean up, then quit.
-    setTimeout(() => app.exit(0), 3000).unref();
+    // the last visible window is gone, which blocks restarting and the uninstaller. Don't rely
+    // on a graceful quit: clean up what we can, then exit for certain.
     try {
       closeAllBooks();
       for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.destroy();
     } catch (err) {
-      console.error('Cleanup on close failed:', err);
+      appLog(`cleanup on close failed: ${err.message}`);
     }
-    app.quit();
+    updater.installOnExit();
+    exitForSure();
   });
   mainWindow.webContents.on('render-process-gone', (_e, details) => {
     if (details.reason === 'clean-exit') return;
@@ -132,7 +171,11 @@ function buildMenu() {
     },
     {
       label: '&Help',
-      submenu: [{ label: 'About Wolfreader', click: send('about') }],
+      submenu: [
+        { label: 'Check for Updates…', click: send('check-updates') },
+        { type: 'separator' },
+        { label: 'About Wolfreader', click: send('about') },
+      ],
     },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -191,6 +234,11 @@ function registerIpc() {
     chrome: process.versions.chrome,
   }));
 
+  ipcMain.handle('update:status', () => updater.getStatus());
+  ipcMain.handle('update:check', () => updater.check(true));
+  ipcMain.handle('update:download', () => updater.download());
+  ipcMain.handle('update:install', () => updater.install());
+
   ipcMain.handle('app:take-pending-file', () => {
     const file = pendingFile;
     pendingFile = null;
@@ -220,7 +268,6 @@ function registerIpc() {
     try {
       if (typeof filePath !== 'string' || !filePath) throw new EpubError('not-found', 'No file was chosen.');
       const archive = await EpubArchive.open(filePath);
-      closeAllBooks(); // only once the new book is known to be good
       const bookId = crypto.randomBytes(8).toString('hex');
       books.set(bookId, { archive, engine: null, filePath });
       const baseUrl = `${ORIGIN}/book/${bookId}/`;
@@ -389,6 +436,7 @@ function start() {
   registerIpc();
   buildMenu();
   createMainWindow();
+  updater.setup({ send: sendToUi, log: appLog });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
@@ -396,6 +444,8 @@ function start() {
 }
 
 app.on('before-quit', () => closeAllBooks());
+app.on('will-quit', () => appLog('will-quit'));
+app.on('quit', (_e, code) => appLog(`quit code=${code}`));
 
 app.on('window-all-closed', () => {
   closeAllBooks();
