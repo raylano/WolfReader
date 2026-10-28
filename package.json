@@ -1,7 +1,7 @@
 {
   "name": "wolfreader",
   "productName": "Wolfreader",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Wolfreader — open EPUB books and print the whole book or just the chapters and pages you choose.",
   "main": "src/main/main.js",
   "author": "Wolfreader",
