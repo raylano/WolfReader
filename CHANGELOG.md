@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.2
+
+- Maintenance release. Update checks keep running in the background at startup and every few
+  hours (introduced in 1.3.0); no other changes.
+
 ## 1.3.1
 
 - Closing Wolfreader no longer flashes a console window with “Pinging 127.0.0.1…”. The safety
