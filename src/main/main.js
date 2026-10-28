@@ -72,22 +72,34 @@ function bringToFront() {
   mainWindow.setAlwaysOnTop(false);
 }
 
+// Runs in a hidden copy of Wolfreader.exe started as plain Node (no window, no console): waits
+// until the app process is gone, and ends it after a few seconds if it isn't.
+const WATCHDOG = `
+const pid = Number(process.argv[1]);
+const alive = () => { try { process.kill(pid, 0); return true; } catch { return false; } };
+const started = Date.now();
+const timer = setInterval(() => {
+  if (!alive()) process.exit(0);
+  if (Date.now() - started > 5000) {
+    try { process.kill(pid); } catch {}
+    process.exit(0);
+  }
+}, 250);
+`;
+
 /**
- * Ends this process for certain. On Windows a detached taskkill "watchdog" is started first: if
- * Chromium's own shutdown hangs (seen after printing), it kills the process after ~5 s, so
- * Wolfreader can always be started again and uninstalled.
+ * Ends this process for certain. On Windows a hidden watchdog is started first: if Chromium's own
+ * shutdown hangs (seen after printing), it ends the process after ~5 s, so Wolfreader can always
+ * be started again and uninstalled.
  */
 function exitForSure() {
   if (process.platform === 'win32') {
     try {
-      const image = path.basename(process.execPath);
-      const cmd = `ping -n 6 127.0.0.1 >nul & taskkill /F /PID ${process.pid} /FI "IMAGENAME eq ${image}" >nul 2>&1`;
-      // Verbatim: cmd.exe doesn't understand Node's \" quoting of the inner filter quotes.
-      spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `"${cmd}"`], {
+      spawn(process.execPath, ['-e', WATCHDOG, String(process.pid)], {
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
         detached: true,
         stdio: 'ignore',
         windowsHide: true,
-        windowsVerbatimArguments: true,
       }).unref();
     } catch (err) {
       appLog(`watchdog failed: ${err.message}`);

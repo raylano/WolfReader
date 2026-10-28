@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.1
+
+- Closing Wolfreader no longer flashes a console window with “Pinging 127.0.0.1…”. The safety
+  net that makes sure the app really exits now runs invisibly and stops as soon as the app is gone.
+
 ## 1.3.0
 
 - **Automatic updates.** Wolfreader checks GitHub for a newer release shortly after starting
